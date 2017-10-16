@@ -1,14 +1,14 @@
 SDPLRname = "SDPLR-1.03-beta"
 
-uri = "http://sburer.github.io/files/SDPLR-1.03-beta.zip"
+uri = "http://sburer.github.io/files/$SDPLRname.zip"
 
 pkgdir  = Pkg.dir("SDPLR")
 rootdir = joinpath(pkgdir, "deps")
 dwndir  = joinpath(rootdir, "downloads")
-zipfile = joinpath(dwndir, "SDPLR-1.03-beta.zip")
+zipfile = joinpath(dwndir, "$SDPLRname.zip")
 dirsrc  = joinpath(rootdir, "src")
-_srcdir  = joinpath(dirsrc, SDPLRname)
-_bindir  = joinpath(rootdir, "usr", "bin")
+_srcdir = joinpath(dirsrc, SDPLRname)
+_bindir = joinpath(rootdir, "usr", "bin")
 
 osname = "linux"
 @static if is_apple()
