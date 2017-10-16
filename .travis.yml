@@ -30,6 +30,7 @@ git:
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("SDPLR"); Pkg.test("SDPLR"; coverage=true)'
 addons:
   apt_packages:
+    - gfortran
     - liblapack-dev
     - libopenblas-dev
 after_success:
