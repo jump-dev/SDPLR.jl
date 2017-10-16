@@ -1,5 +1,4 @@
 using SDPLR
 using Base.Test
 
-# write your own tests here
-@test 1 == 2
+SDPLR.solvesdpafile("../deps/src/SDPLR-1.03-beta/data/vibra1.dat-s")

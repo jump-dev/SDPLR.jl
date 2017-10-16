@@ -28,6 +28,10 @@ git:
 ## uncomment the following lines to override the default test script
 #script:
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("SDPLR"); Pkg.test("SDPLR"; coverage=true)'
+addons:
+  apt_packages:
+    - liblapack-dev
+    - libopenblas-dev
 after_success:
   # push coverage results to Coveralls
   - julia -e 'cd(Pkg.dir("SDPLR")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
