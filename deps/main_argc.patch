@@ -1,0 +1,24 @@
+--- source/main.c
++++ source/main.c
+@@ -7,7 +7,7 @@
+ #define RANDOM 0
+ // #define DATABLOCKIND(DATA,BLOCK,NUMBLOCK) ((DATA+1)-1)*NUMBLOCK + BLOCK - 1
+ 
+-int main(size_t argc, char *argv[])
++int main(int argc, char *argv[])
+ {
+   size_t h, k, ret, n, nr, *maxranks, *ranks;
+   double *R, *lambda, pieces[8];
+diff --git a/source/proto.h b/source/proto.h
+index fe47b8a..843db2b 100644
+--- source/proto.h
++++ source/proto.h
+@@ -27,7 +27,7 @@ size_t updatelbfgs2(problemdata *data, lbfgsvec *vecs, double *dir, double *grad
+ /* linesearch.c */
+ double linesearch(problemdata *data, double *R, double *D, double max, double *funcval, size_t update);
+ /* main.c */
+-int main(size_t argc, char *argv[]);
++int main(int argc, char *argv[]);
+ size_t getstorage(size_t m, size_t numblk, size_t *blksz, char *blktype, size_t *CAinfo_entptr, size_t *passedn, size_t *passednr, size_t *maxranks);
+ size_t readin(size_t m, size_t numblk, size_t *blksz, char *blktype, double *R, double *lambda, size_t *maxranks, size_t *ranks, double *pieces, FILE *fid);
+ size_t writeout(size_t m, size_t numblk, size_t *blksz, char *blktype, double *R, double *lambda, size_t *maxranks, size_t *ranks, double *pieces, FILE *fid);

@@ -28,6 +28,7 @@ BinDeps.run(@build_steps begin
         @build_steps begin
             ChangeDirectory(_srcdir)
             `cp Makefile.inc.$osname Makefile.inc`
+            pipeline(`patch -N -p0`, stdin="$rootdir/main_argc.patch")
             @static if is_windows()
                 pipeline(`patch -N -p0`, stdin="$rootdir/windows.patch")
                 `mingw32-make mingw`
