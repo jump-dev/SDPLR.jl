@@ -44,7 +44,7 @@ build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
   - C:\projects\julia\bin\julia -e "versioninfo();
-      Pkg.clone(pwd(), \"SDPLR\"); Pkg.build(\"SDPLR\")"
+      Pkg.clone(pwd(), \"SDPLR\"); cd(Pkg.dir(\"SDPLR\", \"deps\")); include(\"build.jl\")"
 
 test_script:
   - C:\projects\julia\bin\julia -e "Pkg.test(\"SDPLR\")"
