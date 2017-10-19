@@ -29,7 +29,8 @@ BinDeps.run(@build_steps begin
             ChangeDirectory(_srcdir)
             `cp Makefile.inc.$osname Makefile.inc`
             @static if is_windows()
-                `mingw$(Sys.WORD_SIZE)-make.exe mingw`
+                pipeline(`patch -N -p0`, stdin="$rootdir/windows.patch")
+                `mingw32-make mingw`
             else
                 `make`
             end

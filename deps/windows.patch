@@ -1,0 +1,11 @@
+--- Makefile
++++ Makefile
+@@ -19,7 +19,7 @@ cleanall: clean
+ mingw: mingw_gsl mingw_sdplr
+ 
+ mingw_gsl:
+-	cd gsl-1.5\poly & mingw32-make
++	cd gsl-1.5\\poly & mingw32-make
+ 
+ mingw_sdplr:
+ 	cd source & mingw32-make
