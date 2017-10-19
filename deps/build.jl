@@ -29,7 +29,7 @@ BinDeps.run(@build_steps begin
             ChangeDirectory(_srcdir)
             `cp Makefile.inc.$osname Makefile.inc`
             @static if is_windows()
-                `mingw$(Sys.WORD_SIZE)-make mingw`
+                `mingw$(Sys.WORD_SIZE)-make.exe mingw`
             else
                 `make`
             end
