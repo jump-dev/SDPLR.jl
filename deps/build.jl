@@ -31,6 +31,8 @@ BinDeps.run(@build_steps begin
             pipeline(`patch -N -p0`, stdin="$rootdir/main_argc.patch")
             @static if is_windows()
                 pipeline(`patch -N -p0`, stdin="$rootdir/windows.patch")
+            end
+            @static if is_windows()
                 `mingw32-make mingw`
             else
                 `make`
