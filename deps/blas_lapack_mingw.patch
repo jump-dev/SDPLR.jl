@@ -1,0 +1,24 @@
+--- Makefile.inc.mingw
++++ Makefile.inc.mingw
+@@ -7,7 +7,6 @@
+ # If a relative path is given next, it should be relative from the
+ # source/ subdirectory.
+ 
+-LAPACK_LIB_DIR=../libmingw
+ LAPACK_LIB= -llapack
+ 
+ ##############################
+@@ -17,7 +16,6 @@ LAPACK_LIB= -llapack
+ # If a relative path is given next, it should be relative from the
+ # source/ subdirectory.
+ 
+-BLAS_LIB_DIR=../libmingw
+ BLAS_LIB= -lblas
+ 
+ ####################
+@@ -26,5 +24,4 @@ BLAS_LIB= -lblas
+ 
+ CC       = gcc
+ CFLAGS   = -O3 -static
+-LIB_DIRS = -L$(LAPACK_LIB_DIR) -L$(BLAS_LIB_DIR)
+ LIBS     = -lgsl $(LAPACK_LIB) $(BLAS_LIB) -lgfortran -lm
