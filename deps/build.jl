@@ -17,26 +17,27 @@ elseif is_windows()
     osname = "mingw"
 end
 
-function _libdir(libname)
-    @show libname
-    libpath=Libdl.dlpath(libname)
-    @show libpath
+# Taken from SDPA.jl at deps/blaslapack.jl
+function ldflags(; libpath=Libdl.dlpath(libname), libname=first(split(basename(libpath), '.', limit=2)))
     libdir = dirname(libpath)
-    @show libdir
-    libdir
+    # I use [4:end] to drop the "lib" at the beginning
+    linkname = libname[4:end]
+    info("Using $libname at $libpath : -L$libpath -L$libdir -l$libname -l$linkname")
+    "-L$libpath -L$libdir", "-l$libname -l$linkname -l$libpath -l$libname.DLL -l$libname.dll -l$linkname.DLL -l$linkname.dll"
 end
 
-function julia_blas_lib()
-    _libdir(LinAlg.BLAS.libblas)
+function blas_lib()
+    ldflags(libname=LinAlg.BLAS.libblas)
 end
 
-function julia_lapack_lib()
-    _libdir(LinAlg.LAPACK.liblapack)
+function lapack_lib()
+    ldflags(libname=LinAlg.LAPACK.liblapack)
 end
+
+const BLAS_L, BLAS_l = blas_lib()
+const LAPACK_L, LAPACK_l = lapack_lib()
 
 using BinDeps
-
-@show `julia -e "println(raw\"LAPACK_LIB_DIR=$(julia_lapack_lib())\")" >> Makefile.inc.$osname`
 
 BinDeps.run(@build_steps begin
         CreateDirectory(dwndir)
@@ -49,13 +50,8 @@ BinDeps.run(@build_steps begin
             @static if is_windows()
                 @build_steps begin
                     pipeline(`patch -N -p0`, stdin="$rootdir/blas_lapack_mingw.patch")
-                    `julia -e "println(raw\"LAPACK_LIB_DIR=$(julia_lapack_lib())\")"`
-                    pipeline(`julia -e "println(raw\"LAPACK_LIB_DIR=$(julia_lapack_lib())\")"`, stdout="Makefile.inc.$osname", append=true)
-                    `julia -e "println(raw\"BLAS_LIB_DIR=$(julia_blas_lib())\")"`
-                    pipeline(`julia -e "println(raw\"BLAS_LIB_DIR=$(julia_blas_lib())\")"`, stdout="Makefile.inc.$osname", append=true)
-                    `julia -e "println(raw\"LIB_DIRS = -L\$(LAPACK_LIB_DIR) -L\$(BLAS_LIB_DIR)\")"`
-                    `julia -e "println(raw\"LIB_DIRS = -L$(Libdl.dlpath(LinAlg.LAPACK.liblapack)) -L\$(LAPACK_LIB_DIR) -L$(Libdl.dlpath(LinAlg.BLAS.libblas)) -L\$(BLAS_LIB_DIR)\")"`
-                    pipeline(`julia -e "println(raw\"LIB_DIRS = -L$(Libdl.dlpath(LinAlg.LAPACK.liblapack)) -L\$(LAPACK_LIB_DIR) -L$(Libdl.dlpath(LinAlg.BLAS.libblas)) -L\$(BLAS_LIB_DIR)\")"`, stdout="Makefile.inc.$osname", append=true)
+                    pipeline(`julia -e "println(raw\"LIBS += $BLAS_l $LAPACK_l\")"`, stdout="Makefile.inc.$osname", append=true)
+                    pipeline(`julia -e "println(raw\"LIB_DIRS = $BLAS_L $LAPACK_L\")"`, stdout="Makefile.inc.$osname", append=true)
                 end
             end
             `cp Makefile.inc.$osname Makefile.inc`
