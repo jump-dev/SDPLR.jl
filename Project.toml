@@ -1,0 +1,10 @@
+name = "SDPLR"
+uuid = "56161740-ea4e-4253-9d15-43c62ff94d95"
+authors = ["Benoît Legat <benoit.legat@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+SDPLR_jll = "3a057b76-36a0-51f0-a66f-6d580b8e8efd"
+
+[compat]
+julia = "1.6"
