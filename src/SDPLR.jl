@@ -7,7 +7,7 @@ function solve_sdpa_file(file)
 end
 
 # Default values taken from `SDPLR-1.03-beta/source/params.c`
-@kwdef struct Parameters
+Base.@kwdef struct Parameters
     #inputtype = 1
     rho_f::Cdouble = 1.0e-5
     rho_c::Cdouble = 1.0e-1
