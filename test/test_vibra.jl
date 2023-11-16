@@ -5,7 +5,7 @@ import SDPLR
 end
 @testset "Solve vibra with sdplrlib" begin
     include("vibra.jl")
-    ret = SDPLR.solve(
+    ret, R, lambda, ranks = SDPLR.solve(
         blksz,
         blktype,
         b,
@@ -14,12 +14,10 @@ end
         CAcol,
         CAinfo_entptr,
         CAinfo_type,
-        SDPLR.Parameters(),
-        R,
-        lambda,
-        maxranks,
-        ranks,
-        pieces,
     )
     @test iszero(ret)
+    @test length(R) == 477
+    @test sum(R) ≈ -102.638 rtol = 1e-3
+    @test sum(lambda) ≈ -40.8133 rtol = 1e-3
+    @test ranks == Csize_t[9, 9, 1]
 end

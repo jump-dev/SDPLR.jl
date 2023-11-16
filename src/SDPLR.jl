@@ -24,6 +24,47 @@ Base.@kwdef struct Parameters
     typebd::Cptrdiff_t = 1
 end
 
+# See `macros.h`
+datablockind(data, block, numblock) = ((data + 1) - 1) * numblock + block
+
+import Random
+function default_R(blktype::Vector{Cchar}, blksz, maxranks)
+    # See `getstorage` in `main.c`
+    nr = sum(eachindex(blktype)) do k
+        if blktype[k] == Cchar('s')
+            return blksz[k] * maxranks[k]
+        elseif blktype[k] == Cchar('d')
+            return blksz[k]
+        else
+            return 0
+        end
+    end
+    # In `main.c`, it does (rand() / RAND_MAX) - (rand() - RAND_MAX) to take the difference between
+    # two numbers between 0 and 1. Here, Julia's rand() is already between 0 and 1 so we don't have
+    # to divide.
+    Random.seed!(925)
+    return rand(nr) - rand(nr)
+end
+
+function default_maxranks(blktype, blksz, CAinfo_entptr)
+    numblk = length(blktype)
+    m = div(length(CAinfo_entptr) - 1, numblk) - 1
+    # See `getstorage` in `main.c`
+    return map(eachindex(blktype)) do k
+        if blktype[k] == Cchar('s')
+            cons = count(1:m) do i
+                ind = datablockind(i, k, numblk)
+                return CAinfo_entptr[ind + 1] > CAinfo_entptr[ind]
+            end
+            return Csize_t(min(isqrt(2cons) + 1, blksz[k]))
+        elseif blktype[k] == Cchar('d')
+            return Csize_t(1)
+        else
+            return Csize_t(0)
+        end
+    end
+end
+
 function solve(
     blksz::Vector{Cptrdiff_t},
     blktype::Vector{Cchar},
@@ -32,13 +73,13 @@ function solve(
     CArow::Vector{Csize_t},
     CAcol::Vector{Csize_t},
     CAinfo_entptr::Vector{Csize_t},
-    CAinfo_type::Vector{Cchar},
-    params::Parameters,
-    R::Vector{Cdouble},
-    lambda::Vector{Cdouble},
-    maxranks::Vector{Csize_t},
-    ranks::Vector{Csize_t},
-    pieces::Vector{Cdouble},
+    CAinfo_type::Vector{Cchar};
+    params::Parameters = Parameters(),
+    maxranks::Vector{Csize_t} = default_maxranks(blktype, blksz, CAinfo_entptr),
+    ranks::Vector{Csize_t} = copy(maxranks),
+    R::Vector{Cdouble} = default_R(blktype, blksz, maxranks),
+    lambda::Vector{Cdouble} = zeros(length(b)),
+    pieces::Vector{Cdouble} = Cdouble[0, 0, 0, 0, 0, 0, inv(sum(blksz)), 1],
 )
     numblk = length(blksz)
     @assert length(blktype) == numblk
@@ -80,7 +121,7 @@ function solve(
         ranks::Ptr{Csize_t},
         pieces::Ptr{Cdouble},
     )::Csize_t
-    return ret
+    return ret, R, lambda, ranks
 end
 
 end # module
