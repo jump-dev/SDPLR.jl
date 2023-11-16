@@ -7,4 +7,5 @@ version = "0.1.0"
 SDPLR_jll = "3a057b76-36a0-51f0-a66f-6d580b8e8efd"
 
 [compat]
+SDPLR_jll = "100.1.300"
 julia = "1.6"
