@@ -4,6 +4,7 @@ authors = ["Benoît Legat <benoit.legat@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SDPLR_jll = "3a057b76-36a0-51f0-a66f-6d580b8e8efd"
 
 [compat]
