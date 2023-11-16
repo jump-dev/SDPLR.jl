@@ -54,7 +54,7 @@ function default_maxranks(blktype, blksz, CAinfo_entptr)
         if blktype[k] == Cchar('s')
             cons = count(1:m) do i
                 ind = datablockind(i, k, numblk)
-                return CAinfo_entptr[ind + 1] > CAinfo_entptr[ind]
+                return CAinfo_entptr[ind+1] > CAinfo_entptr[ind]
             end
             return Csize_t(min(isqrt(2cons) + 1, blksz[k]))
         elseif blktype[k] == Cchar('d')

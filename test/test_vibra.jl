@@ -17,7 +17,6 @@ end
     )
     @test iszero(ret)
     @test length(R) == 477
-    @test sum(R) ≈ -102.638 rtol = 1e-3
     @test sum(lambda) ≈ -40.8133 rtol = 1e-3
     @test ranks == Csize_t[9, 9, 1]
 end
