@@ -4,6 +4,7 @@ import SDPLR
     SDPLR.solve_sdpa_file("vibra1.dat-s")
 end
 @testset "Solve vibra with sdplrlib" begin
+    include("vibra.jl")
     ret = SDPLR.solve(
         blksz,
         blktype,
