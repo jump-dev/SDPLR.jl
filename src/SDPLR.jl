@@ -25,30 +25,26 @@ Base.@kwdef struct Parameters
 end
 
 # See `macros.h`
-datablockind(data, block, numblock) = ((data + 1) - 1) * numblock + block
+datablockind(data, block, numblock) = data * numblock + block
 
-import Random
 function default_R(blktype::Vector{Cchar}, blksz, maxranks)
     # See `getstorage` in `main.c`
     nr = sum(eachindex(blktype)) do k
         if blktype[k] == Cchar('s')
             return blksz[k] * maxranks[k]
-        elseif blktype[k] == Cchar('d')
-            return blksz[k]
         else
-            return 0
+            @assert blktype[k] == Cchar('d')
+            return blksz[k]
         end
     end
-    # In `main.c`, it does (rand() / RAND_MAX) - (rand() - RAND_MAX) to take the difference between
-    # two numbers between 0 and 1. Here, Julia's rand() is already between 0 and 1 so we don't have
-    # to divide.
-    Random.seed!(925)
+    # In `main.c`, it does `(rand() / RAND_MAX) - (rand() - RAND_MAX)`` to take the difference between
+    # two numbers between 0 and 1. Here, Julia's `rand()`` is already between 0 and 1 so we don't have
+    # to divide by anything.
     return rand(nr) - rand(nr)
 end
 
-function default_maxranks(blktype, blksz, CAinfo_entptr)
+function default_maxranks(blktype, blksz, CAinfo_entptr, m)
     numblk = length(blktype)
-    m = div(length(CAinfo_entptr) - 1, numblk) - 1
     # See `getstorage` in `main.c`
     return map(eachindex(blktype)) do k
         if blktype[k] == Cchar('s')
@@ -57,14 +53,25 @@ function default_maxranks(blktype, blksz, CAinfo_entptr)
                 return CAinfo_entptr[ind+1] > CAinfo_entptr[ind]
             end
             return Csize_t(min(isqrt(2cons) + 1, blksz[k]))
-        elseif blktype[k] == Cchar('d')
-            return Csize_t(1)
         else
-            return Csize_t(0)
+            @assert blktype[k] == Cchar('d')
+            return Csize_t(1)
         end
     end
 end
 
+"""
+SDPA format (see `MOI.FileFormats.SDPA.Model`) with
+matrices `C`, `A_1`, ..., `A_m`, `X` that are block
+diagonal with `numblk` blocks and `b` is a length-`m`
+vector.
+
+Each block `1 <= k <= numblk` is has dimension `blksz[k] × blksz[k]`.
+The `k`th block of `X` is computed as `R * R'` where `R` is of size
+`blksz[k] × maxranks[k]` if `blktype[k]` is `Cchar('s')` and
+`Diagonal(R)` where `R` is a vector of size `blksz[k]` if `blktype[k]`
+is `Cchar('d')`.
+"""
 function solve(
     blksz::Vector{Cptrdiff_t},
     blktype::Vector{Cchar},
@@ -75,7 +82,7 @@ function solve(
     CAinfo_entptr::Vector{Csize_t},
     CAinfo_type::Vector{Cchar};
     params::Parameters = Parameters(),
-    maxranks::Vector{Csize_t} = default_maxranks(blktype, blksz, CAinfo_entptr),
+    maxranks::Vector{Csize_t} = default_maxranks(blktype, blksz, CAinfo_entptr, length(b)),
     ranks::Vector{Csize_t} = copy(maxranks),
     R::Vector{Cdouble} = default_R(blktype, blksz, maxranks),
     lambda::Vector{Cdouble} = zeros(length(b)),
@@ -121,7 +128,9 @@ function solve(
         ranks::Ptr{Csize_t},
         pieces::Ptr{Cdouble},
     )::Csize_t
-    return ret, R, lambda, ranks
+    return ret, R, lambda, ranks, pieces
 end
+
+include("MOI_wrapper.jl")
 
 end # module
