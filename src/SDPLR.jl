@@ -84,7 +84,12 @@ function solve(
     CAinfo_entptr::Vector{Csize_t},
     CAinfo_type::Vector{Cchar};
     params::Parameters = Parameters(),
-    maxranks::Vector{Csize_t} = default_maxranks(blktype, blksz, CAinfo_entptr, length(b)),
+    maxranks::Vector{Csize_t} = default_maxranks(
+        blktype,
+        blksz,
+        CAinfo_entptr,
+        length(b),
+    ),
     ranks::Vector{Csize_t} = copy(maxranks),
     R::Vector{Cdouble} = default_R(blktype, blksz, maxranks),
     lambda::Vector{Cdouble} = zeros(length(b)),
@@ -103,11 +108,11 @@ function solve(
     @assert CAinfo_entptr[1] == 0
     @assert CAinfo_entptr[end] == length(CArow)
     k = 0
-    for i in eachindex(b)
+    for _ in eachindex(b)
         for blk in eachindex(blksz)
             k += 1
             @assert CAinfo_entptr[k] <= CAinfo_entptr[k+1]
-            for j in ((CAinfo_entptr[k] + 1):CAinfo_entptr[k+1])
+            for j in ((CAinfo_entptr[k]+1):CAinfo_entptr[k+1])
                 @assert blktype[blk] == CAinfo_type[k]
                 @assert 1 <= CArow[j] <= blksz[blk]
                 @assert 1 <= CAcol[j] <= blksz[blk]
