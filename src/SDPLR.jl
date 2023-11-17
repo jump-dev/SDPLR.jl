@@ -150,6 +150,9 @@ function solve(
             params.timelim::Csize_t,
             params.rankredtol::Cdouble,
             params.printlevel::Csize_t,
+            # We can see in `source/main.c` that `R - 1` and `lambda - 1`
+            # are passed to `sdplrlib` so we also need to shift by `-1`
+            # by using `pointer(_, 0)`.
             pointer(R, 0)::Ptr{Cdouble},
             pointer(lambda, 0)::Ptr{Cdouble},
             maxranks::Ptr{Csize_t},
