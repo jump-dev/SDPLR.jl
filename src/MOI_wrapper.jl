@@ -127,8 +127,8 @@ function _add_entry(model::Optimizer, entry, i, index, set)
     _fill_until(model, i)
     push!(model.CAent, entry)
     row, col = _row_col(index, set)
-    push!(model.CArow, row)
-    push!(model.CAcol, col)
+    push!(model.CArow, row - 1)
+    push!(model.CAcol, col - 1)
     return
 end
 
@@ -146,8 +146,8 @@ function MOI.add_constraint(
         c = func.constants[i]
         if !iszero(c)
             push!(model.CAent, c)
-            push!(model.CArow, i)
-            push!(model.CAcol, i)
+            push!(model.CArow, i - 1)
+            push!(model.CAcol, i - 1)
         end
     end
     i = -1
@@ -156,7 +156,9 @@ function MOI.add_constraint(
     for term in sort(func.terms, lt = _isless)
         if i != term.scalar_term.variable.value ||
             index != term.output_index
-            _add_entry(model, entry, i, index, set)
+            if i != -1
+                _add_entry(model, entry, i, index, set)
+            end
             i = term.scalar_term.variable.value
             index = term.output_index
             entry = 0.0

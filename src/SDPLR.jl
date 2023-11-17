@@ -71,6 +71,8 @@ The `k`th block of `X` is computed as `R * R'` where `R` is of size
 `blksz[k] × maxranks[k]` if `blktype[k]` is `Cchar('s')` and
 `Diagonal(R)` where `R` is a vector of size `blksz[k]` if `blktype[k]`
 is `Cchar('d')`.
+
+The `CA...` arguments specify the `C` and `A_i` matrices.
 """
 function solve(
     blksz::Vector{Cptrdiff_t},
@@ -98,6 +100,25 @@ function solve(
     @assert length(maxranks) == numblk
     @assert length(ranks) == numblk
     @assert length(pieces) == 8
+    @assert CAinfo_entptr[1] == 0
+    @assert CAinfo_entptr[end] == length(CArow)
+    k = 0
+    for blk in eachindex(blksz)
+        for _ in eachindex(b)
+            k += 1
+            @assert CAinfo_entptr[k] <= CAinfo_entptr[k+1]
+            for j in ((CAinfo_entptr[k] + 1):CAinfo_entptr[k+1])
+                @assert 0 <= CArow[j] < blksz[blk]
+                @assert 0 <= CAcol[j] < blksz[blk]
+                if CAinfo_type[k] == Cchar('s')
+                    @assert CArow[j] <= CAcol[j]
+                else
+                    @assert CAinfo_type[k] == Cchar('d')
+                    @assert CArow[j] == CAcol[j]
+                end
+            end
+        end
+    end
     ret = @ccall SDPLR.SDPLR_jll.libsdplr.sdplrlib(
         m::Csize_t,
         numblk::Csize_t,
