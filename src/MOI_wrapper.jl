@@ -201,7 +201,11 @@ function _fill!(
     for t in MOI.Utilities.canonical(func).terms
         blk, i, j = model.varmap[t.variable.value]
         _fill_until(model, blk, entptr, type, length(ent))
-        push!(ent, t.coefficient)
+        coef = t.coefficient
+        if i != j
+            coef /= 2
+        end
+        push!(ent, coef)
         push!(row, i)
         push!(col, j)
     end
@@ -226,7 +230,7 @@ function MOI.add_constraint(
         model.Ainfo_type[end],
         func,
     )
-    push!(model.b, func.constant)
+    push!(model.b, MOI.constant(set) - MOI.constant(func))
     return MOI.ConstraintIndex{typeof(func),typeof(set)}(length(model.b))
 end
 

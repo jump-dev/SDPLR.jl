@@ -31,7 +31,7 @@ function test_runtests()
     MOI.Test.runtests(
         model,
         config,
-        include = String["test_conic_PositiveSemidefiniteConeTriangle_VectorOfVariables",],
+        include = [r"test_conic_PositiveSemidefiniteConeTriangle_VectorOfVariables$",],
         exclude = String[],
     )
     return
