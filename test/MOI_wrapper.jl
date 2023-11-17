@@ -22,14 +22,17 @@ function test_runtests()
             MOI.ConstraintName,
             MOI.VariableName,
             MOI.ObjectiveBound,
+            MOI.ConstraintPrimal, # TODO
+            MOI.ConstraintDual, # TODO
             MOI.SolverVersion,
         ],
+        optimal_status = MOI.LOCALLY_SOLVED,
     )
     MOI.Test.runtests(
         model,
         config,
         include = String[
-            "test_conic_NormOneCone_INFEASIBLE",
+            "test_conic_PositiveSemidefiniteConeTriangle_VectorOfVariables",
         ],
         exclude = String[
         ],

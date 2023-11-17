@@ -2,17 +2,25 @@
 
 import MathOptInterface as MOI
 
+const SupportedSets = Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle}
+
 mutable struct Optimizer <: MOI.AbstractOptimizer
     objective_constant::Float64
     objective_sign::Int
     blksz::Vector{Cptrdiff_t}
     blktype::Vector{Cchar}
+    varmap::Vector{Tuple{Int,Int,Int}} # Variable Index vi -> blk, i, j
     b::Vector{Cdouble}
-    CAent::Vector{Cdouble}
-    CArow::Vector{Csize_t}
-    CAcol::Vector{Csize_t}
-    CAinfo_entptr::Vector{Vector{Csize_t}}
-    CAinfo_type::Vector{Vector{Cchar}}
+    Cent::Vector{Cdouble}
+    Crow::Vector{Csize_t}
+    Ccol::Vector{Csize_t}
+    Cinfo_entptr::Vector{Csize_t}
+    Cinfo_type::Vector{Cchar}
+    Aent::Vector{Cdouble}
+    Arow::Vector{Csize_t}
+    Acol::Vector{Csize_t}
+    Ainfo_entptr::Vector{Vector{Csize_t}}
+    Ainfo_type::Vector{Vector{Cchar}}
     silent::Bool
     params::Parameters
     Rmap::Vector{Int}
@@ -26,7 +34,13 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             1,
             Cptrdiff_t[],
             Cchar[],
+            Tuple{Int,Int,Int}[],
             Cdouble[],
+            Cdouble[],
+            Csize_t[],
+            Csize_t[],
+            Csize_t[],
+            Cchar[],
             Cdouble[],
             Csize_t[],
             Csize_t[],
@@ -71,27 +85,57 @@ MOI.get(optimizer::Optimizer, ::MOI.Silent) = optimizer.silent
 
 MOI.get(::Optimizer, ::MOI.SolverName) = "SDPLR"
 
-function MOI.add_variable(model::Optimizer)
-    prev = 0
-    push!(model.b, 0.0)
-    for blk in eachindex(model.blktype)
-        cur = model.CAinfo_entptr[blk]
-        if !isempty(cur)
-            prev = last(cur)
-        end
-        push!(cur, prev)
-        # This doesn't matter since the `entptr` is the same as the previous one
-        push!(model.CAinfo_type[blk], model.blktype[k])
-    end
-    return MOI.VariableIndex(length(model.b))
+function MOI.supports_add_constrained_variables(
+    ::Optimizer,
+    ::Type{MOI.Reals},
+)
+    return false
 end
 
-const SupportedSets = Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle}
+function MOI.supports_add_constrained_variables(
+    ::Optimizer,
+    ::Type{<:SupportedSets},
+)
+    return true
+end
+
+function _new_block(model::Optimizer, set::MOI.Nonnegatives)
+    push!(model.blksz, MOI.dimension(set))
+    push!(model.blktype, Cchar('d'))
+    blk = length(model.blksz)
+    for i in 1:MOI.dimension(set)
+        push!(model.varmap, (blk, i, i))
+    end
+    return
+end
+
+function _new_block(model::Optimizer, set::MOI.PositiveSemidefiniteConeTriangle)
+    push!(model.blksz, set.side_dimension)
+    push!(model.blktype, Cchar('s'))
+    blk = length(model.blksz)
+    for j in 1:set.side_dimension
+        for i in 1:j
+            push!(model.varmap, (blk, i, j))
+        end
+    end
+    return
+end
+
+function MOI.add_constrained_variables(model::Optimizer, set::SupportedSets)
+    offset = length(model.varmap)
+    _new_block(model, set)
+    ci = MOI.ConstraintIndex{MOI.VectorOfVariables,typeof(set)}(offset + 1)
+    for i in eachindex(model.Ainfo_entptr)
+        _fill_until(model, length(model.blksz), model.Ainfo_entptr[i], model.Ainfo_type[i], _prev(model, i))
+    end
+    _fill_until(model, length(model.blksz), model.Cinfo_entptr, model.Cinfo_type, length(model.Cent))
+    return [MOI.VariableIndex(i) for i in offset .+ (1:MOI.dimension(set))], ci
+end
 
 function MOI.supports_constraint(
     ::Optimizer,
-    ::Type{MOI.VectorAffineFunction{Cdouble}},
-    ::Type{<:SupportedSets},
+    ::Type{MOI.ScalarAffineFunction{Cdouble}},
+    ::Type{MOI.EqualTo{Cdouble}},
 )
     return true
 end
@@ -104,72 +148,51 @@ function _isless(t1::MOI.VectorAffineTerm, t2::MOI.VectorAffineTerm)
     end
 end
 
-function _fill_until(model::Optimizer, i)
-    while length(model.CAinfo_type[end]) <= i
-        push!(model.CAinfo_type[end], model.blktype[end])
-        push!(model.CAinfo_entptr[end], length(model.CAent))
+function _prev(model::Optimizer, i)
+    prev = 0
+    for j in i:-1:1
+        if !isempty(model.Ainfo_entptr[j])
+            prev = last(model.Ainfo_entptr[j])
+        end
     end
+    return prev
+end
+
+function _fill_until(model::Optimizer, numblk, entptr::Vector{Csize_t}, type::Vector{Cchar}, prev)
+    @assert length(type) == length(entptr)
+    while length(type) < numblk
+        blk = length(type) + 1
+        push!(type, model.blktype[blk])
+        push!(entptr, prev)
+    end
+    @assert length(type) == numblk
+    @assert length(entptr) == numblk
     return
 end
 
-_size(set::MOI.Nonnegatives) = set.dimension
-_size(set::MOI.PositiveSemidefiniteConeTriangle) = set.side_dimension
-
-_type(::MOI.Nonnegatives) = Cchar('d')
-_type(::MOI.PositiveSemidefiniteConeTriangle) = Cchar('s')
-
-_row_col(index, ::MOI.Nonnegatives) = index, index
-function _row_col(index, ::MOI.PositiveSemidefiniteConeTriangle)
-    return MOI.Utilities.reverse_trimap(index)
-end
-
-function _add_entry(model::Optimizer, entry, i, index, set)
-    _fill_until(model, i)
-    push!(model.CAent, entry)
-    row, col = _row_col(index, set)
-    push!(model.CArow, row - 1)
-    push!(model.CAcol, col - 1)
-    return
+function _fill!(model, ent, row, col, entptr::Vector{Csize_t}, type::Vector{Cchar}, func)
+    for t in MOI.Utilities.canonical(func).terms
+        blk, i, j = model.varmap[t.variable.value]
+        _fill_until(model, blk, entptr, type, length(ent))
+        push!(ent, t.coefficient)
+        push!(row, i)
+        push!(col, j)
+    end
+    _fill_until(model, length(model.blksz), entptr, type, length(ent))
+    @assert length(entptr) == length(model.blksz)
+    @assert length(type) == length(model.blksz)
 end
 
 function MOI.add_constraint(
     model::Optimizer,
-    func::MOI.VectorAffineFunction{Cdouble},
-    set::Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle},
+    func::MOI.ScalarAffineFunction{Cdouble},
+    set::MOI.EqualTo{Cdouble},
 )
-    push!(model.blksz, _size(set))
-    push!(model.blktype, _type(set))
-    push!(model.CAinfo_entptr, Csize_t[])
-    push!(model.CAinfo_type, Cchar[])
-    _fill_until(model, 0)
-    for i in eachindex(func.constants)
-        c = func.constants[i]
-        if !iszero(c)
-            push!(model.CAent, c)
-            push!(model.CArow, i - 1)
-            push!(model.CAcol, i - 1)
-        end
-    end
-    i = -1
-    index = 0
-    entry = 0.0
-    for term in sort(func.terms, lt = _isless)
-        if i != term.scalar_term.variable.value ||
-            index != term.output_index
-            if i != -1
-                _add_entry(model, entry, i, index, set)
-            end
-            i = term.scalar_term.variable.value
-            index = term.output_index
-            entry = 0.0
-        end
-        entry += term.scalar_term.coefficient
-    end
-    if i != -1
-        _add_entry(model, entry, i, index, set)
-    end
-    _fill_until(model, length(model.b))
-    return MOI.ConstraintIndex{typeof(func),typeof(set)}(length(model.blksz))
+    push!(model.Ainfo_entptr, Csize_t[])
+    push!(model.Ainfo_type, Cchar[])
+    _fill!(model, model.Aent, model.Arow, model.Acol, model.Ainfo_entptr[end], model.Ainfo_type[end], func)
+    push!(model.b, func.constant)
+    return MOI.ConstraintIndex{typeof(func),typeof(set)}(length(model.b))
 end
 
 MOI.supports_incremental_interface(::Optimizer) = true
@@ -179,8 +202,21 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
 end
 
 function MOI.optimize!(model::Optimizer)
-    CAinfo_entptr = reduce(vcat, model.CAinfo_entptr, init = Csize_t[])
-    push!(CAinfo_entptr, length(model.CAent))
+    CAent = vcat(model.Cent, model.Aent)
+    CArow = vcat(model.Crow, model.Arow)
+    CAcol = vcat(model.Ccol, model.Acol)
+    @assert length(model.Cinfo_entptr) == length(model.blksz)
+    @assert length(model.Cinfo_type) == length(model.blksz)
+    for i in eachindex(model.Ainfo_entptr)
+        @assert length(model.Ainfo_entptr[i]) == length(model.blksz)
+        @assert length(model.Ainfo_type[i]) == length(model.blksz)
+    end
+    CAinfo_entptr = reduce(vcat, vcat([model.Cinfo_entptr], model.Ainfo_entptr), init = Csize_t[])
+    for i in (length(model.Cinfo_entptr) + 1):length(CAinfo_entptr)
+        CAinfo_entptr[i] += length(model.Cent)
+    end
+    push!(CAinfo_entptr, length(CAent))
+    CAinfo_type = reduce(vcat, vcat([model.Cinfo_type], model.Ainfo_type), init = Cchar[])
     maxranks = default_maxranks(model.blktype, model.blksz, CAinfo_entptr, length(model.b))
     Rsizes = map(eachindex(model.blktype)) do k
         if model.blktype[k] == Cchar('s')
@@ -197,9 +233,9 @@ function MOI.optimize!(model::Optimizer)
     nr = last(model.Rmap)
     R = rand(nr) - rand(nr)
     _, model.R, model.lambda, model.ranks, model.pieces = solve(
-        model.blksz, model.blktype, model.b, model.CAent,
-        model.CArow, model.CAcol, CAinfo_entptr,
-        reduce(vcat, model.CAinfo_type, init = Cchar[]);
+        model.blksz, model.blktype, model.b, CAent,
+        CArow, CAcol, CAinfo_entptr,
+        CAinfo_type,
         params = model.params,
         maxranks = maxranks, R = R,
     )
@@ -215,7 +251,7 @@ function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
 end
 
 function MOI.is_empty(optimizer::Optimizer)
-    return iszero(optimizer.b)
+    return isempty(optimizer.b) && isempty(optimizer.varmap)
 end
 
 function MOI.empty!(optimizer::Optimizer)
@@ -223,12 +259,18 @@ function MOI.empty!(optimizer::Optimizer)
     optimizer.objective_sign = 1
     empty!(optimizer.blksz)
     empty!(optimizer.blktype)
+    empty!(optimizer.varmap)
     empty!(optimizer.b)
-    empty!(optimizer.CAent)
-    empty!(optimizer.CArow)
-    empty!(optimizer.CAcol)
-    empty!(optimizer.CAinfo_entptr)
-    empty!(optimizer.CAinfo_type)
+    empty!(optimizer.Cent)
+    empty!(optimizer.Crow)
+    empty!(optimizer.Ccol)
+    empty!(optimizer.Cinfo_entptr)
+    empty!(optimizer.Cinfo_type)
+    empty!(optimizer.Aent)
+    empty!(optimizer.Arow)
+    empty!(optimizer.Acol)
+    empty!(optimizer.Ainfo_entptr)
+    empty!(optimizer.Ainfo_type)
     empty!(optimizer.Rmap)
     optimizer.R = nothing
     empty!(optimizer.lambda)
@@ -258,12 +300,12 @@ end
 
 function MOI.set(model::Optimizer, ::MOI.ObjectiveFunction, func::MOI.ScalarAffineFunction{Cdouble})
     model.objective_constant = MOI.constant(func)
-    for i in eachindex(model.b)
-        model.b[i] = 0.0
-    end
-    for t in func.terms
-        model.b[t.variable.value] += model.objective_sense * t.coefficient
-    end
+    empty!(model.Cent)
+    empty!(model.Crow)
+    empty!(model.Ccol)
+    empty!(model.Cinfo_entptr)
+    empty!(model.Cinfo_type)
+    _fill!(model, model.Cent, model.Crow, model.Ccol, model.Cinfo_entptr, model.Cinfo_type, func)
     return
 end
 
@@ -297,42 +339,29 @@ function MOI.get(model::Optimizer, ::MOI.ResultCount)
     end
 end
 
-function MOI.get(m::Optimizer, attr::MOI.ObjectiveValue)
-    MOI.check_result_index_bounds(m, attr)
-    return m.objsign * m.primalobj + m.objective_constant
-end
-
-function MOI.get(m::Optimizer, attr::MOI.DualObjectiveValue)
-    MOI.check_result_index_bounds(m, attr)
-    return m.objsign * m.dualobj + m.objective_constant
-end
-
 function MOI.get(
     optimizer::Optimizer,
     attr::MOI.VariablePrimal,
     vi::MOI.VariableIndex,
 )
     MOI.check_result_index_bounds(optimizer, attr)
-    return optimizer.lambda[vi.value]
-end
-
-_reshape(x, d, ::Type{MOI.Nonnegatives}) = x
-function _reshape(x, d, ::Type{MOI.PositiveSemidefiniteConeTriangle})
-    U = reshape(x, d, div(length(x), d))
-    X = U * U'
-    return [X[i, j] for j in 1:d for i in 1:j]
+    blk, i, j = optimizer.varmap[vi.value]
+    I = (optimizer.Rmap[blk] + 1):optimizer.Rmap[blk + 1]
+    if optimizer.blktype[blk] == Cchar('s')
+        d = optimizer.blksz[blk]
+        U = reshape(optimizer.R[I], d, div(length(I), d))
+        return U[i, :]' * U[j, :]
+    else
+        @assert optimizer.blktype[blk] == Cchar('d')
+        return optimizer.R[I[i]]
+    end
 end
 
 function MOI.get(
     optimizer::Optimizer,
     attr::MOI.ConstraintDual,
-    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{Cdouble},S},
-) where {S<:SupportedSets}
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Cdouble},MOI.EqualTo{Cdouble}},
+)
     MOI.check_result_index_bounds(optimizer, attr)
-    block = ci.value
-    return _reshape(
-        optimizer.R[optimizer.Rmap[block]:optimizer.Rmap[block + 1]],
-        optimizer.blksz[block],
-        S,
-    )
+    return optimizer.lambda[ci.value]
 end
