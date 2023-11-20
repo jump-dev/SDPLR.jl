@@ -1,5 +1,4 @@
 m = 36
-numblk = 3
 blksz = Cptrdiff_t[24, 25, 36]
 blktype = Cchar['s', 's', 'd']
 b = ones(m)

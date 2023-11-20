@@ -1,3 +1,5 @@
 [deps]
+MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SDPLR = "56161740-ea4e-4253-9d15-43c62ff94d95"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
