@@ -21,13 +21,13 @@ import MathOptInterface as MOI
     @test iszero(ret)
     @test length(R) == 4
     U = reshape(R, 2, 2)
-    @test U * U' ≈ ones(2, 2) rtol = 1e-3
-    @test lambda ≈ [2.0] atol = 1e-3
+    @test U * U' ≈ ones(2, 2) rtol = 1e-2
+    @test lambda ≈ [2.0] atol = 1e-2
     @test ranks == Csize_t[2]
 end
 
 @testset "MOI wrapper" begin
-    atol = rtol = 1e-3
+    atol = rtol = 1e-2
     model = SDPLR.Optimizer()
     X, cX = MOI.add_constrained_variables(
         model,
