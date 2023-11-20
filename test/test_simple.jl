@@ -29,7 +29,10 @@ end
 @testset "MOI wrapper" begin
     atol = rtol = 1e-3
     model = SDPLR.Optimizer()
-    X, cX = MOI.add_constrained_variables(model, MOI.PositiveSemidefiniteConeTriangle(2))
+    X, cX = MOI.add_constrained_variables(
+        model,
+        MOI.PositiveSemidefiniteConeTriangle(2),
+    )
     c = MOI.add_constraint(model, 1.0 * X[2], MOI.EqualTo(1.0))
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     obj = 1.0 * X[1] + 1.0 * X[3]
