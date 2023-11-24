@@ -65,7 +65,8 @@ function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
     if !MOI.supports(optimizer, param)
         throw(MOI.UnsupportedAttribute(param))
     end
-    setfield!(optimizer.params, Symbol(param.name), value)
+    s = Symbol(param.name)
+    setfield!(optimizer.params, s, convert(fieldtype(Parameters, s), value))
     return
 end
 function MOI.get(optimizer::Optimizer, param::MOI.RawOptimizerAttribute)
@@ -280,6 +281,10 @@ function MOI.optimize!(model::Optimizer)
     # two numbers between 0 and 1. Here, Julia's `rand()`` is already between 0 and 1 so we don't have
     # to divide by anything.
     nr = last(model.Rmap)
+    params = deepcopy(model.params)
+    if model.silent
+        params.printlevel = 0
+    end
     R = rand(nr) - rand(nr)
     _, model.R, model.lambda, model.ranks, model.pieces = solve(
         model.blksz,
@@ -290,7 +295,7 @@ function MOI.optimize!(model::Optimizer)
         CAcol,
         CAinfo_entptr,
         CAinfo_type,
-        params = model.params,
+        params = params,
         maxranks = maxranks,
         R = R,
     )
@@ -352,7 +357,7 @@ function MOI.set(
 )
     sign = sense == MOI.MAX_SENSE ? -1 : 1
     if model.objective_sign != sign
-        rmul!(model.b, -1)
+        model.b .*= -1
         model.objective_sign = sign
     end
     return
