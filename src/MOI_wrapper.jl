@@ -263,6 +263,7 @@ function MOI.optimize!(model::Optimizer)
     CAinfo_type =
         reduce(vcat, vcat([model.Cinfo_type], model.Ainfo_type), init = Cchar[])
     maxranks = default_maxranks(
+        model.params.maxrank,
         model.blktype,
         model.blksz,
         CAinfo_entptr,
