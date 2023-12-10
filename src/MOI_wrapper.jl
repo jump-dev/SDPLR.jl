@@ -357,7 +357,7 @@ function MOI.set(
 )
     sign = sense == MOI.MAX_SENSE ? -1 : 1
     if model.objective_sign != sign
-        model.b .*= -1
+        model.Cent .*= -1
         model.objective_sign = sign
     end
     return
@@ -383,6 +383,9 @@ function MOI.set(
         model.Cinfo_type,
         func,
     )
+    if model.objective_sign != 1
+        model.Cent .*= -1
+    end
     return
 end
 
