@@ -2,42 +2,53 @@ module TestBounds
 
 using Test
 import SDPLR
+import MathOptInterface as MOI
 
-using DataFrames
+const PATAKI = [
+    1 1 1 1 1 1 1
+    1 1 1 1 1 1 1
+    2 2 2 2 2 2 2
+    2 2 2 2 2 2 2
+    2 2 2 2 2 2 2
+    3 3 3 3 3 3 3
+    3 3 3 3 3 3 3
+]
+const BARVINOK = [
+    1 1 1 1 1 1 1
+    1 1 1 1 1 1 1
+    2 2 1 1 1 1 1
+    2 2 2 2 2 2 2
+    2 2 2 2 2 2 2
+    3 3 3 2 2 2 2
+    3 3 3 3 3 3 3
+]
+const DEFAULT_MAXRANK = [
+    1 2 2 2 2 2 2
+    1 2 3 3 3 3 3
+    1 2 3 3 3 3 3
+    1 2 3 3 3 3 3
+    1 2 3 4 4 4 4
+    1 2 3 4 4 4 4
+    1 2 3 4 4 4 4
+]
+
 
 function test_bounds()
-    pataki = [
-        1 1 1 1 1 1 1
-        1 1 1 1 1 1 1
-        1 2 2 2 2 2 2
-        1 2 2 2 2 2 2
-        1 2 2 2 2 2 2
-        1 2 3 3 3 3 3
-        1 2 3 3 3 3 3
-    ]
-    barvinok = [
-        1 1 1 1 1 1 1
-        1 1 1 1 1 1 1
-        1 2 1 1 1 1 1
-        1 2 2 2 2 2 2
-        1 2 2 2 2 2 2
-        1 2 3 2 2 2 2
-        1 2 3 3 3 3 3
-    ]
-    default_maxrank = [
-        1 2 2 2 2 2 2
-        1 2 3 3 3 3 3
-        1 2 3 3 3 3 3
-        1 2 3 3 3 3 3
-        1 2 3 4 4 4 4
-        1 2 3 4 4 4 4
-        1 2 3 4 4 4 4
-    ]
     for m in 1:7
         for n in 1:7
-            @test SDPLR.pataki(m, n) == pataki[m, n]
-            @test SDPLR.barvinok(m, n) == barvinok[m, n]
-            @test SDPLR.default_maxrank(m, n) == default_maxrank[m, n]
+            @test SDPLR.pataki(m, n) == PATAKI[m, n]
+            @test SDPLR.barvinok(m, n) == BARVINOK[m, n]
+            @test SDPLR.default_maxrank(m, n) == DEFAULT_MAXRANK[m, n]
+        end
+    end
+    for m in 1:10
+        for n in 1:10
+            @test isqrt(2m) == MOI.Utilities.side_dimension_for_vectorized_dimension(m)
+            @test isqrt(2m) - 1 <= SDPLR.pataki(m)
+            @test isqrt(2m) - 1 <= SDPLR.pataki(m + 1)
+            @test SDPLR.pataki(m) <= isqrt(2m)
+            @test SDPLR.pataki(m + 1) <= isqrt(2m)
+            @test min(SDPLR.pataki(m, n) + 1, n) == min(SDPLR.barvinok(m + 1, n) + 1, n)
         end
     end
     return

@@ -51,6 +51,9 @@ function default_maxranks(maxrank, blktype, blksz, CAinfo_entptr, m)
     # See `getstorage` in `main.c`
     return map(eachindex(blktype)) do k
         if blktype[k] == Cchar('s')
+            # Because we do `1:m` and not `0:m`, we do not count the objective.
+            # `maxrank` will increment our count by `1` assuming that it is
+            # always part of the objective.
             cons = count(1:m) do i
                 ind = datablockind(i, k, numblk)
                 return CAinfo_entptr[ind+1] > CAinfo_entptr[ind]
