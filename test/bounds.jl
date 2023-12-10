@@ -44,7 +44,7 @@ function test_bounds()
     end
     for m in 1:100
         @test isqrt(2m) ==
-                MOI.Utilities.side_dimension_for_vectorized_dimension(m)
+              MOI.Utilities.side_dimension_for_vectorized_dimension(m)
         @test isqrt(2m) - 1 <= SDPLR.pataki(m)
         @test isqrt(2m) - 1 <= SDPLR.pataki(m + 1)
         @test SDPLR.pataki(m) <= isqrt(2m)
