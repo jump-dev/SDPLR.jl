@@ -30,7 +30,7 @@ returns `r`.
 
 [B02] Barvinok, "A Course in Convexity", 2002.
 """
-function barvinok(m, n=0)
+function barvinok(m, n = 0)
     r = pataki(m, n)
     if m == MOI.dimension(MOI.PositiveSemidefiniteConeTriangle(r)) && 1 < r < n
         r -= 1
