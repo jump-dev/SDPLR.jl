@@ -19,11 +19,13 @@ It is the maximal `r` such that `div(r * (r + 1), 2) ≤ m`.
 [P12] Pataki, "The geometry of semidefinite programming", 2012.
 """
 function pataki(m, n = 0)
-    r = MOI.Utilities.side_dimension_for_vectorized_dimension(m)
-    if m < MOI.dimension(MOI.PositiveSemidefiniteConeTriangle(r))
-        r -= 1
-    end
-    return r
+    # Let `τ(r) = r * (r + 1) / 2`
+    # `inverse_trimap(m)[2]` is the smallest `r` such that
+    # `τ(r) ≥ m` while we want the largest `r` such that `τ(r) ≤ m`.
+    # `inverse_trimap(m + 1)[2]` is  smallest `r` such that
+    # `τ(r) ≥ m + 1` hence `τ(r) > m` which is the negation of `τ(r) ≤ m`.
+    # Therefore, we can do:
+    return MOI.Utilities.inverse_trimap(m + 1)[2] - 1
 end
 
 """
