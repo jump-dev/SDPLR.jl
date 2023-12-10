@@ -32,7 +32,6 @@ const DEFAULT_MAXRANK = [
     1 2 3 4 4 4 4
 ]
 
-
 function test_bounds()
     for m in 1:7
         for n in 1:7
@@ -43,12 +42,14 @@ function test_bounds()
     end
     for m in 1:10
         for n in 1:10
-            @test isqrt(2m) == MOI.Utilities.side_dimension_for_vectorized_dimension(m)
+            @test isqrt(2m) ==
+                  MOI.Utilities.side_dimension_for_vectorized_dimension(m)
             @test isqrt(2m) - 1 <= SDPLR.pataki(m)
             @test isqrt(2m) - 1 <= SDPLR.pataki(m + 1)
             @test SDPLR.pataki(m) <= isqrt(2m)
             @test SDPLR.pataki(m + 1) <= isqrt(2m)
-            @test min(SDPLR.pataki(m, n) + 1, n) == min(SDPLR.barvinok(m + 1, n) + 1, n)
+            @test min(SDPLR.pataki(m, n) + 1, n) ==
+                  min(SDPLR.barvinok(m + 1, n) + 1, n)
         end
     end
     return
