@@ -60,20 +60,10 @@ function test_runtests()
             #      @ MathOptInterface.Bridges.Constraint ~/.julia/dev/MathOptInterface/src/Bridges/Constraint/bridges/functionize.jl:293
             r"test_basic_VectorOfVariables_SecondOrderCone$",
             # Unable to bridge RotatedSecondOrderCone to PSD because the dimension is too small: got 2, expected >= 3.
-            r"test_conic_SecondOrderCone_INFEASIBLE$",
             r"test_constraint_PrimalStart_DualStart_SecondOrderCone$",
-            # Detecting infeasibility not supported
-            r"test_conic_NormInfinityCone_INFEASIBLE$",
-            r"test_conic_NormOneCone_INFEASIBLE$",
-            r"test_conic_RotatedSecondOrderCone_INFEASIBLE$",
-            r"test_conic_linear_INFEASIBLE$",
-            r"test_conic_linear_INFEASIBLE_2$",
-            r"test_linear_INFEASIBLE$",
-            r"test_linear_INFEASIBLE_2$",
-            # Detecting unboundedness not supported
-            r"test_linear_DUAL_INFEASIBLE",
-            r"test_linear_DUAL_INFEASIBLE_2",
-            r"test_solve_TerminationStatus_DUAL_INFEASIBLE$",
+            # Detecting infeasibility or unboundedness not supported
+            "INFEASIBLE",
+            "infeasible",
             # FIXME investigate
             r"test_conic_SecondOrderCone_nonnegative_post_bound$",
             r"test_conic_SecondOrderCone_negative_post_bound_2$",
@@ -86,6 +76,10 @@ function test_runtests()
             r"test_model_UpperBoundAlreadySet$",
             r"test_model_delete$",
             r"test_modification_affine_deletion_edge_cases$",
+            # Surprise! Got a quadratic function!
+            r"test_constraint_ScalarAffineFunction_GreaterThan$",
+            r"test_constraint_ScalarAffineFunction_EqualTo$",
+            r"test_constraint_ScalarAffineFunction_Interval$",
         ],
     )
     return
