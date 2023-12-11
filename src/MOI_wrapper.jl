@@ -433,7 +433,7 @@ function MOI.get(
         return U[i, :]' * U[j, :]
     else
         @assert optimizer.blktype[blk] == Cchar('d')
-        return optimizer.R[I[i]]
+        return optimizer.R[I[i]]^2
     end
 end
 
