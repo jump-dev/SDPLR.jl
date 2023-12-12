@@ -76,10 +76,14 @@ function test_runtests()
             r"test_model_UpperBoundAlreadySet$",
             r"test_model_delete$",
             r"test_modification_affine_deletion_edge_cases$",
-            # Surprise! Got a quadratic function!
+            # Surprise! Got a quadratic function!, needs https://github.com/sburer/sdplr/pull/2
             r"test_constraint_ScalarAffineFunction_GreaterThan$",
             r"test_constraint_ScalarAffineFunction_EqualTo$",
             r"test_constraint_ScalarAffineFunction_Interval$",
+            r"test_linear_LessThan_and_GreaterThan$",
+            r"test_linear_modify_GreaterThan_and_LessThan_constraints$",
+            r"test_modification_const_vectoraffine_zeros$",
+            r"test_linear_VectorAffineFunction$",
         ],
     )
     return
