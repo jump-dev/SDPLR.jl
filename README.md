@@ -46,9 +46,13 @@ List of supported objective functions:
 
 List of supported variable types:
 
- * [`MOI.Reals`](@ref)
+ * [`MOI.Nonnegatives`](@ref)
+ * [`MOI.PositiveSemidefiniteConeTriangle`](@ref)
 
 List of supported constraint types:
 
- * [`MOI.VectorAffineFunction{Float64}`](@ref) in [`MOI.Nonnegatives`](@ref)
- * [`MOI.VectorAffineFunction{Float64}`](@ref) in [`MOI.PositiveSemidefiniteConeTriangle`](@ref)
+ * [`MOI.ScalarAffineFunction{Float64}`](@ref) in [`MOI.EqualTo{Float64}`](@ref)
+
+List of supported model attributes:
+
+ * [`MOI.ObjectiveSense()`](@ref)
