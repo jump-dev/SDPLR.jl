@@ -4,13 +4,13 @@
 [![codecov](https://codecov.io/gh/blegat/SDPLR.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/blegat/SDPLR.jl)
 
 [SDPLR.jl](https://github.com/blegat/SDPLR.jl) is a wrapper for the
-[SDPLR](http://sburer.github.io/projects.html) semidefinite programming solver.
+[SDPLR](https://github.com/sburer/sdplr) semidefinite programming solver.
 
 ## License
 
 `SDPLR.jl` is licensed under the [MIT License](https://github.com/blegat/SDPLR.jl/blob/master/LICENSE.md).
 
-The underlying solver, [SDPLR](http://sburer.github.io/projects.html), is
+The underlying solver, [SDPLR](https://github.com/sburer/sdplr), is
 licensed under the GPL v2 license.
 
 ## Installation
