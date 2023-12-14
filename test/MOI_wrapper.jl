@@ -33,34 +33,18 @@ function test_runtests()
         model,
         config,
         exclude = [
-            # test_basic_VectorOfVariables_Nonpositives: Error During Test at /home/blegat/.julia/dev/MathOptInterface/src/Test/test_basic_constraint.jl:276
-            #  Test threw exception
-            #  Expression: MOI.get(model, MOI.ConstraintSet(), c) == set
-            #  StackOverflowError:
-            #  Stacktrace:
-            #       [1] call_in_context(b::MathOptInterface.Bridges.LazyBridgeOptimizer{MathOptInterface.Utilities.CachingOptimizer{SDPLR.Optimizer, MathOptInterface.Utilities.UniversalFallback{MathOptInterface.Utilities.Model{Float64}}}}, ci::MathOptInterface.ConstraintIndex{MathOptInterface.VectorOfVariables, MathOptInterface.Nonpositives}, f::MathOptInterface.Bridges.var"#3#4"{typeof(MathOptInterface.get), MathOptInterface.Bridges.LazyBridgeOptimizer{MathOptInterface.Utilities.CachingOptimizer{SDPLR.Optimizer, MathOptInterface.Utilities.UniversalFallback{MathOptInterface.Utilities.Model{Float64}}}}, MathOptInterface.ConstraintSet, Tuple{}})
-            #         @ MathOptInterface.Bridges ~/.julia/dev/MathOptInterface/src/Bridges/bridge_optimizer.jl:309
-            #       [2] call_in_context
-            #         @ ~/.julia/dev/MathOptInterface/src/Bridges/bridge_optimizer.jl:332 [inlined]
-            #       [3] get(b::MathOptInterface.Bridges.LazyBridgeOptimizer{MathOptInterface.Utilities.CachingOptimizer{SDPLR.Optimizer, MathOptInterface.Utilities.UniversalFallback{MathOptInterface.Utilities.Model{Float64}}}}, attr::MathOptInterface.ConstraintSet, ci::MathOptInterface.ConstraintIndex{MathOptInterface.VectorOfVariables, MathOptInterface.Nonpositives})
-            #         @ MathOptInterface.Bridges ~/.julia/dev/MathOptInterface/src/Bridges/bridge_optimizer.jl:1467
+            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2358
             r"test_basic_VectorOfVariables_Nonpositives$",
-            # MOI bug:
-            # test_basic_VectorOfVariables_SecondOrderCone: Error During Test at /home/blegat/.julia/dev/MathOptInterface/src/Test/Test.jl:266
-            #  Got exception outside of a @test
-            #  InexactError: convert(MathOptInterface.VectorOfVariables, ┌                                              ┐
-            #  │0.0 + 0.9999999999999999 MOI.VariableIndex(-1)│
-            #  │0.0 + 0.9999999999999999 MOI.VariableIndex(-2)│
-            #  │0.0 + 1.0 MOI.VariableIndex(-3)               │
-            #  └                                              ┘)
-            #  Stacktrace:
-            #    [1] convert(#unused#::Type{MathOptInterface.VectorOfVariables}, f::MathOptInterface.VectorAffineFunction{Float64})
-            #      @ MathOptInterface ~/.julia/dev/MathOptInterface/src/functions.jl:1266
-            #    [2] get(model::MathOptInterface.Bridges.LazyBridgeOptimizer{MathOptInterface.Utilities.CachingOptimizer{SDPLR.Optimizer, MathOptInterface.Utilities.UniversalFallback{MathOptInterface.Utilities.Model{Float64}}}}, #unused#::MathOptInterface.ConstraintFunction, b::MathOptInterface.Bridges.Constraint.FunctionConversionBridge{Float64, MathOptInterface.VectorAffineFunction{Float64}, MathOptInterface.VectorOfVariables, MathOptInterface.SecondOrderCone})
-            #      @ MathOptInterface.Bridges.Constraint ~/.julia/dev/MathOptInterface/src/Bridges/Constraint/bridges/functionize.jl:293
+            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2360
             r"test_basic_VectorOfVariables_SecondOrderCone$",
-            # Unable to bridge RotatedSecondOrderCone to PSD because the dimension is too small: got 2, expected >= 3.
+            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2359
             r"test_constraint_PrimalStart_DualStart_SecondOrderCone$",
+            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2357
+            r"test_model_ListOfVariablesWithAttributeSet$",
+            r"test_model_LowerBoundAlreadySet$",
+            r"test_model_UpperBoundAlreadySet$",
+            r"test_model_ScalarFunctionConstantNotZero$",
+            r"test_model_delete$",
             # Detecting infeasibility or unboundedness not supported
             "INFEASIBLE",
             "infeasible",
@@ -70,11 +54,6 @@ function test_runtests()
             r"test_conic_SecondOrderCone_negative_post_bound_3$",
             r"test_conic_SecondOrderCone_no_initial_bound$",
             r"test_linear_add_constraints$",
-            r"test_model_ListOfVariablesWithAttributeSet$",
-            r"test_model_LowerBoundAlreadySet$",
-            r"test_model_ScalarFunctionConstantNotZero$",
-            r"test_model_UpperBoundAlreadySet$",
-            r"test_model_delete$",
             r"test_modification_affine_deletion_edge_cases$",
             # Surprise! Got a quadratic function!, needs https://github.com/sburer/sdplr/pull/2
             r"test_constraint_ScalarAffineFunction_GreaterThan$",
