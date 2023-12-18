@@ -66,7 +66,7 @@ matrices `C`, `A_1`, ..., `A_m`, `X` that are block
 diagonal with `numblk` blocks and `b` is a length-`m`
 vector.
 
-Each block `1 <= k <= numblk` is has dimension `blksz[k] × blksz[k]`.
+Each block `1 <= k <= numblk` has dimension `blksz[k] × blksz[k]`.
 The `k`th block of `X` is computed as `R * R'` where `R` is of size
 `blksz[k] × maxranks[k]` if `blktype[k]` is `Cchar('s')` and
 `Diagonal(R)` where `R` is a vector of size `blksz[k]` if `blktype[k]`
