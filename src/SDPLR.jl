@@ -2,6 +2,8 @@ module SDPLR
 
 using SDPLR_jll
 
+include("bounds.jl")
+
 function solve_sdpa_file(file)
     return run(`$(SDPLR_jll.sdplr()) $file`)
 end
@@ -22,6 +24,7 @@ Base.@kwdef mutable struct Parameters
     gaptol::Cdouble = 1.0e-3
     checkbd::Cptrdiff_t = -1
     typebd::Cptrdiff_t = 1
+    maxrank::Function = default_maxrank
 end
 
 # See `macros.h`
@@ -43,16 +46,19 @@ function default_R(blktype::Vector{Cchar}, blksz, maxranks)
     return rand(nr) - rand(nr)
 end
 
-function default_maxranks(blktype, blksz, CAinfo_entptr, m)
+function default_maxranks(maxrank, blktype, blksz, CAinfo_entptr, m)
     numblk = length(blktype)
     # See `getstorage` in `main.c`
     return map(eachindex(blktype)) do k
         if blktype[k] == Cchar('s')
+            # Because we do `1:m` and not `0:m`, we do not count the objective.
+            # `maxrank` will increment our count by `1` assuming that it is
+            # always part of the objective.
             cons = count(1:m) do i
                 ind = datablockind(i, k, numblk)
                 return CAinfo_entptr[ind+1] > CAinfo_entptr[ind]
             end
-            return Csize_t(min(isqrt(2cons) + 1, blksz[k]))
+            return Csize_t(maxrank(cons, blksz[k]))
         else
             @assert blktype[k] == Cchar('d')
             return Csize_t(1)
@@ -85,6 +91,7 @@ function solve(
     CAinfo_type::Vector{Cchar};
     params::Parameters = Parameters(),
     maxranks::Vector{Csize_t} = default_maxranks(
+        params.maxrank,
         blktype,
         blksz,
         CAinfo_entptr,
