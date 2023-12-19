@@ -57,7 +57,39 @@ List of supported model attributes:
 
  * [`MOI.ObjectiveSense()`](@ref)
 
-## Algorithm
+## Attributes
+
+The algorithm is parametrized by the attributes that can be used both with `JuMP.set_attributes` and `JuMP.get_attributes`
+and have the following types and default values:
+```julia
+rho_f::Cdouble = 1.0e-5
+rho_c::Cdouble = 1.0e-1
+sigmafac::Cdouble = 2.0
+rankreduce::Csize_t = 0
+timelim::Csize_t = 3600
+printlevel::Csize_t = 1
+dthresh_dim::Csize_t = 10
+dthresh_dens::Cdouble = 0.75
+numbfgsvecs::Csize_t = 4
+rankredtol::Cdouble = 2.2204460492503131e-16
+gaptol::Cdouble = 1.0e-3
+checkbd::Cptrdiff_t = -1
+typebd::Cptrdiff_t = 1
+maxrank::Function = default_maxrank
+```
+
+The following attributes can be also be used both with `JuMP.set_attributes` and `JuMP.get_attributes`, but they are also
+modified by `optimize!`:
+* `majiter`
+* `iter`
+* `lambdaupdate`
+* `totaltime`
+* `sigma`
+
+When they are `set`, it provides the initial value of the algorithm.
+With `get`, they provide the value at the end of the algorithm.
+`totaltime` is the total time in second. For the other attributes,
+their meaning is best described by the following pseudo-code.
 
 Given values of `R`, `lambda` and `sigma`, let
 `vio = [dot(A[i], R * R') - b[i]) for i in 1:m]` (`vio[0]` is `dot(C, R * R')` in the C implementation, but we ignore this entry here),
@@ -94,6 +126,9 @@ for majiter in 1:100_000
         lambda -= sigma * vio
     end
     if val - 1e10 * abs(origval) > eps()
+        return
+    end
+    if norm(vio) / (norm(b) + 1) <= rho_f || totaltime >= timelim || iter >= 10_000_000
         return
     end
     while norm(G) / (norm(C) + 1) > rho_c / sigma

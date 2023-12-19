@@ -1,6 +1,15 @@
-# This file modifies code from SDPAFamily.jl (https://github.com/ericphanson/SDPAFamily.jl/), which is available under an MIT license (see LICENSE).
-
 import MathOptInterface as MOI
+
+const PIECES_MAP = Dict{String,Int}(
+    "majiter" => 1,
+    "iter" => 2,
+    "lambdaupdate" => 3,
+    "CG" => 4,
+    "curr_CG" => 5,
+    "totaltime" => 6,
+    "sigma" => 7,
+    "overallsc" => 8,
+)
 
 const SupportedSets =
     Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle}
@@ -59,22 +68,29 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
 end
 
 function MOI.supports(::Optimizer, param::MOI.RawOptimizerAttribute)
-    return hasfield(Parameters, Symbol(param.name))
+    return haskey(PIECES_MAP, param.name) || hasfield(Parameters, Symbol(param.name))
 end
 function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
     if !MOI.supports(optimizer, param)
         throw(MOI.UnsupportedAttribute(param))
     end
-    s = Symbol(param.name)
-    setfield!(optimizer.params, s, convert(fieldtype(Parameters, s), value))
+    if haskey(PIECES_MAP, param.name)
+        optimizer.pieces[PIECES_MAP[param.name]] = value
+    else
+        s = Symbol(param.name)
+        setfield!(optimizer.params, s, convert(fieldtype(Parameters, s), value))
+    end
     return
 end
 function MOI.get(optimizer::Optimizer, param::MOI.RawOptimizerAttribute)
     if !MOI.supports(optimizer, param)
         throw(MOI.UnsupportedAttribute(param))
     end
-    getfield!(optimizer.params, Symbol(param.name))
-    return
+    if haskey(PIECES_MAP, param.name)
+        return optimizer.pieces[PIECES_MAP[param.name]]
+    else
+        return getfield!(optimizer.params, Symbol(param.name))
+    end
 end
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true
@@ -309,7 +325,7 @@ function MOI.get(optimizer::Optimizer, ::MOI.RawStatusString)
     return "majiter = $majiter, iter = $iter, λupdate = $λupdate, CG = $CG, curr_CG = $curr_CG, totaltime = $totaltime, σ = $σ, overallsc = $overallsc"
 end
 function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
-    return optimizer.pieces[6]
+    return MOI.get(optimizer, MOI.RawOptimizerAttribute("totaltime"))
 end
 
 function MOI.is_empty(optimizer::Optimizer)
@@ -393,6 +409,10 @@ end
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
     if isnothing(model.pieces)
         return MOI.OPTIMIZE_NOT_CALLED
+    elseif MOI.get(model, MOI.SolveTimeSec()) > MOI.get(model, MOI.RawOptimizerAttribute("timelim"))
+        return MOI.TIME_LIMIT
+    elseif MOI.get(model, MOI.RawOptimizerAttribute("iter")) > 10_000_000
+        return MOI.ITERATION_LIMIT
     else
         return MOI.LOCALLY_SOLVED
     end
@@ -401,8 +421,11 @@ end
 function MOI.get(m::Optimizer, attr::MOI.PrimalStatus)
     if attr.result_index > MOI.get(m, MOI.ResultCount())
         return MOI.NO_SOLUTION
+    elseif MOI.get(m, MOI.TerminationStatus()) != MOI.LOCALLY_SOLVED
+        return UNKNOWN_RESULT_STATUS
+    else
+        return MOI.FEASIBLE_POINT
     end
-    return MOI.FEASIBLE_POINT
 end
 
 function MOI.get(m::Optimizer, attr::MOI.DualStatus)
