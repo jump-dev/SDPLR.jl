@@ -104,8 +104,7 @@ The SDPLR solvers implements the following algorithm.
 ```julia
 sigma = inv(sum(size(A[i], 1) for i in 1:m))
 origval = val
-iter = 0
-for majiter in 1:100_000
+while majiter++ < 100_000
     lambdaupdate = 0
     localiter = 100
     while localiter > 10

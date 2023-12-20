@@ -1,5 +1,8 @@
 import MathOptInterface as MOI
 
+const MAX_MAJITER = 100_000
+const MAX_ITER = 10_000_000
+
 const PIECES_MAP = Dict{String,Int}(
     "majiter" => 1,
     "iter" => 2,
@@ -33,11 +36,14 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     Ainfo_type::Vector{Vector{Cchar}}
     silent::Bool
     params::Parameters
+    # Solution
     Rmap::Vector{Int}
-    R::Union{Nothing,Vector{Cdouble}}
-    lambda::Vector{Cdouble}
+    maxranks::Vector{Csize_t}
     ranks::Vector{Csize_t}
+    R::Vector{Cdouble}
+    lambda::Vector{Cdouble}
     pieces::Union{Nothing,Vector{Cdouble}}
+    set_pieces::Dict{Int,Cdouble}
     function Optimizer()
         return new(
             0.0,
@@ -59,10 +65,12 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             false,
             Parameters(),
             Int[],
-            nothing,
-            Cdouble[],
             Csize_t[],
+            Csize_t[],
+            Cdouble[],
+            Cdouble[],
             nothing,
+            Dict{Int,Cdouble}(),
         )
     end
 end
@@ -75,7 +83,15 @@ function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
         throw(MOI.UnsupportedAttribute(param))
     end
     if haskey(PIECES_MAP, param.name)
-        optimizer.pieces[PIECES_MAP[param.name]] = value
+        idx = PIECES_MAP[param.name]
+        if isnothing(value)
+            delete!(optimizer.set_pieces, idx)
+        else
+            optimizer.set_pieces[idx] = value
+            if !isnothing(optimizer.pieces)
+                optimizer.pieces[idx] = value
+            end
+        end
     else
         s = Symbol(param.name)
         setfield!(optimizer.params, s, convert(fieldtype(Parameters, s), value))
@@ -87,9 +103,14 @@ function MOI.get(optimizer::Optimizer, param::MOI.RawOptimizerAttribute)
         throw(MOI.UnsupportedAttribute(param))
     end
     if haskey(PIECES_MAP, param.name)
-        return optimizer.pieces[PIECES_MAP[param.name]]
+        idx = PIECES_MAP[param.name]
+        if isnothing(optimizer.pieces)
+            return get(optimizer.set_pieces, idx, nothing)
+        else
+            return optimizer.pieces[idx]
+        end
     else
-        return getfield!(optimizer.params, Symbol(param.name))
+        return getfield(optimizer.params, Symbol(param.name))
     end
 end
 
@@ -278,31 +299,27 @@ function MOI.optimize!(model::Optimizer)
     push!(CAinfo_entptr, length(CAent))
     CAinfo_type =
         reduce(vcat, vcat([model.Cinfo_type], model.Ainfo_type), init = Cchar[])
-    maxranks = default_maxranks(
-        model.params.maxrank,
-        model.blktype,
-        model.blksz,
-        CAinfo_entptr,
-        length(model.b),
-    )
-    Rsizes = map(eachindex(model.blktype)) do k
-        if model.blktype[k] == Cchar('s')
-            return model.blksz[k] * maxranks[k]
-        else
-            @assert model.blktype[k] == Cchar('d')
-            return model.blksz[k]
-        end
-    end
-    model.Rmap = [0; cumsum(Rsizes)]
-    # In `main.c`, it does `(rand() / RAND_MAX) - (rand() - RAND_MAX)`` to take the difference between
-    # two numbers between 0 and 1. Here, Julia's `rand()`` is already between 0 and 1 so we don't have
-    # to divide by anything.
-    nr = last(model.Rmap)
     params = deepcopy(model.params)
     if model.silent
         params.printlevel = 0
     end
-    R = rand(nr) - rand(nr)
+    if length(model.lambda) < length(model.b) ||
+        length(model.ranks) < length(model.blksz)
+        model.maxranks = default_maxranks(
+            model.params.maxrank,
+            model.blktype,
+            model.blksz,
+            CAinfo_entptr,
+            length(model.b),
+        )
+        model.ranks = copy(model.maxranks)
+        model.Rmap, model.R = default_R(model.blktype, model.blksz, model.maxranks)
+        model.lambda = zeros(Cdouble, length(model.b))
+        model.pieces = default_pieces(model.blksz)
+        for (idx, val) in model.set_pieces
+            model.pieces[idx] = val
+        end
+    end
     _, model.R, model.lambda, model.ranks, model.pieces = solve(
         model.blksz,
         model.blktype,
@@ -312,9 +329,12 @@ function MOI.optimize!(model::Optimizer)
         CAcol,
         CAinfo_entptr,
         CAinfo_type,
-        params = params,
-        maxranks = maxranks,
-        R = R,
+        params = model.params,
+        maxranks = model.maxranks,
+        ranks = model.ranks,
+        R = model.R,
+        lambda = model.lambda,
+        pieces = model.pieces,
     )
     return
 end
@@ -350,9 +370,10 @@ function MOI.empty!(optimizer::Optimizer)
     empty!(optimizer.Ainfo_entptr)
     empty!(optimizer.Ainfo_type)
     empty!(optimizer.Rmap)
-    optimizer.R = nothing
-    empty!(optimizer.lambda)
+    empty!(optimizer.maxranks)
     empty!(optimizer.ranks)
+    empty!(optimizer.R)
+    empty!(optimizer.lambda)
     optimizer.pieces = nothing
     return
 end
@@ -409,9 +430,10 @@ end
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
     if isnothing(model.pieces)
         return MOI.OPTIMIZE_NOT_CALLED
-    elseif MOI.get(model, MOI.SolveTimeSec()) > MOI.get(model, MOI.RawOptimizerAttribute("timelim"))
+    elseif MOI.get(model, MOI.SolveTimeSec()) >= MOI.get(model, MOI.RawOptimizerAttribute("timelim"))
         return MOI.TIME_LIMIT
-    elseif MOI.get(model, MOI.RawOptimizerAttribute("iter")) > 10_000_000
+    elseif MOI.get(model, MOI.RawOptimizerAttribute("iter")) >= MAX_ITER ||
+        MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >= MAX_MAJITER
         return MOI.ITERATION_LIMIT
     else
         return MOI.LOCALLY_SOLVED
