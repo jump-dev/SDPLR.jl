@@ -76,7 +76,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
 end
 
 function MOI.supports(::Optimizer, param::MOI.RawOptimizerAttribute)
-    return haskey(PIECES_MAP, param.name) || hasfield(Parameters, Symbol(param.name))
+    return haskey(PIECES_MAP, param.name) ||
+           hasfield(Parameters, Symbol(param.name))
 end
 function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
     if !MOI.supports(optimizer, param)
@@ -304,7 +305,7 @@ function MOI.optimize!(model::Optimizer)
         params.printlevel = 0
     end
     if length(model.lambda) < length(model.b) ||
-        length(model.ranks) < length(model.blksz)
+       length(model.ranks) < length(model.blksz)
         model.maxranks = default_maxranks(
             model.params.maxrank,
             model.blktype,
@@ -313,7 +314,8 @@ function MOI.optimize!(model::Optimizer)
             length(model.b),
         )
         model.ranks = copy(model.maxranks)
-        model.Rmap, model.R = default_R(model.blktype, model.blksz, model.maxranks)
+        model.Rmap, model.R =
+            default_R(model.blktype, model.blksz, model.maxranks)
         model.lambda = zeros(Cdouble, length(model.b))
         model.pieces = default_pieces(model.blksz)
         for (idx, val) in model.set_pieces
@@ -430,10 +432,11 @@ end
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
     if isnothing(model.pieces)
         return MOI.OPTIMIZE_NOT_CALLED
-    elseif MOI.get(model, MOI.SolveTimeSec()) >= MOI.get(model, MOI.RawOptimizerAttribute("timelim"))
+    elseif MOI.get(model, MOI.SolveTimeSec()) >=
+           MOI.get(model, MOI.RawOptimizerAttribute("timelim"))
         return MOI.TIME_LIMIT
     elseif MOI.get(model, MOI.RawOptimizerAttribute("iter")) >= MAX_ITER ||
-        MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >= MAX_MAJITER
+           MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >= MAX_MAJITER
         return MOI.ITERATION_LIMIT
     else
         return MOI.LOCALLY_SOLVED

@@ -89,15 +89,20 @@ end
 @testset "continuity between solve" begin
     model, X, c = simple_model()
     MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) == SDPLR.MAX_MAJITER - 2
+    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
+          SDPLR.MAX_MAJITER - 2
     MOI.optimize!(model)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >= SDPLR.MAX_MAJITER
+    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >=
+          SDPLR.MAX_MAJITER
     MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) == SDPLR.MAX_MAJITER - 2
+    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
+          SDPLR.MAX_MAJITER - 2
     MOI.optimize!(model)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >= SDPLR.MAX_MAJITER
+    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >=
+          SDPLR.MAX_MAJITER
     MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) == SDPLR.MAX_MAJITER - 2
+    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
+          SDPLR.MAX_MAJITER - 2
     MOI.optimize!(model)
     simple_test(model, X, c)
 end
