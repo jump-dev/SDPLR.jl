@@ -65,6 +65,8 @@ function _test_limit(attr, val, term)
     MOI.set(model, MOI.RawOptimizerAttribute(attr), val)
     MOI.optimize!(model)
     @test MOI.get(model, MOI.TerminationStatus()) == term
+    @test MOI.get(model, MOI.PrimalStatus()) == MOI.UNKNOWN_RESULT_STATUS
+    @test MOI.get(model, MOI.DualStatus()) == MOI.UNKNOWN_RESULT_STATUS
 end
 
 @testset "majiter" begin
@@ -94,15 +96,12 @@ end
     MOI.optimize!(model)
     @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >=
           SDPLR.MAX_MAJITER
-    MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
-          SDPLR.MAX_MAJITER - 2
-    MOI.optimize!(model)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >=
-          SDPLR.MAX_MAJITER
-    MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
-    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
-          SDPLR.MAX_MAJITER - 2
-    MOI.optimize!(model)
+    @test MOI.get(model, MOI.TerminationStatus()) == MOI.ITERATION_LIMIT
+    for i in 1:5
+        MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
+        @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
+              SDPLR.MAX_MAJITER - 2
+        MOI.optimize!(model)
+    end
     simple_test(model, X, c)
 end

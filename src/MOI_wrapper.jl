@@ -451,21 +451,14 @@ function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
     end
 end
 
-function MOI.get(m::Optimizer, attr::MOI.PrimalStatus)
+function MOI.get(m::Optimizer, attr::Union{MOI.PrimalStatus,MOI.DualStatus})
     if attr.result_index > MOI.get(m, MOI.ResultCount())
         return MOI.NO_SOLUTION
     elseif MOI.get(m, MOI.TerminationStatus()) != MOI.LOCALLY_SOLVED
-        return UNKNOWN_RESULT_STATUS
+        return MOI.UNKNOWN_RESULT_STATUS
     else
         return MOI.FEASIBLE_POINT
     end
-end
-
-function MOI.get(m::Optimizer, attr::MOI.DualStatus)
-    if attr.result_index > MOI.get(m, MOI.ResultCount())
-        return MOI.NO_SOLUTION
-    end
-    return MOI.FEASIBLE_POINT
 end
 
 function MOI.get(model::Optimizer, ::MOI.ResultCount)
