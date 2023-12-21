@@ -23,7 +23,6 @@ function test_runtests()
             MOI.ConstraintName,
             MOI.VariableName,
             MOI.ObjectiveBound,
-            MOI.ConstraintPrimal, # TODO
             MOI.ConstraintDual, # TODO
             MOI.SolverVersion,
         ],
