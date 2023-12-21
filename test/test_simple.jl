@@ -26,10 +26,9 @@ import MathOptInterface as MOI
     @test ranks == Csize_t[2]
 end
 
-@testset "MOI wrapper" begin
-    atol = rtol = 1e-2
+function simple_model()
     model = SDPLR.Optimizer()
-    X, cX = MOI.add_constrained_variables(
+    X, _ = MOI.add_constrained_variables(
         model,
         MOI.PositiveSemidefiniteConeTriangle(2),
     )
@@ -38,7 +37,11 @@ end
     obj = 1.0 * X[1] + 1.0 * X[3]
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
     @test MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
-    MOI.optimize!(model)
+    return model, X, c
+end
+
+function simple_test(model, X, c)
+    atol = rtol = 1e-2
     @test MOI.get(model, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
     @test MOI.get(model, MOI.PrimalStatus()) == MOI.FEASIBLE_POINT
     @test MOI.get(model, MOI.DualStatus()) == MOI.FEASIBLE_POINT
@@ -46,4 +49,63 @@ end
     @test MOI.get(model, MOI.VariablePrimal(), X) ≈ Xv atol = atol rtol = rtol
     attr = MOI.ConstraintDual()
     @test MOI.get(model, attr, c) ≈ 2 atol = atol rtol = rtol
+    sigma = MOI.get(model, MOI.RawOptimizerAttribute("sigma"))
+    σ = round(Int, sigma)
+    @test σ ≈ sigma
+end
+
+@testset "MOI wrapper" begin
+    model, X, c = simple_model()
+    MOI.optimize!(model)
+    simple_test(model, X, c)
+end
+
+function _test_limit(attr, val, term)
+    model, _, _ = simple_model()
+    MOI.set(model, MOI.RawOptimizerAttribute(attr), val)
+    MOI.optimize!(model)
+    @test MOI.get(model, MOI.TerminationStatus()) == term
+    @test MOI.get(model, MOI.PrimalStatus()) == MOI.UNKNOWN_RESULT_STATUS
+    @test MOI.get(model, MOI.DualStatus()) == MOI.UNKNOWN_RESULT_STATUS
+end
+
+@testset "majiter" begin
+    _test_limit("majiter", SDPLR.MAX_MAJITER, MOI.ITERATION_LIMIT)
+    _test_limit("majiter", SDPLR.MAX_MAJITER - 1, MOI.ITERATION_LIMIT)
+end
+
+@testset "iter" begin
+    _test_limit("iter", SDPLR.MAX_ITER, MOI.ITERATION_LIMIT)
+    _test_limit("iter", SDPLR.MAX_ITER - 1, MOI.ITERATION_LIMIT)
+end
+
+@testset "timelim" begin
+    _test_limit("timelim", 0, MOI.TIME_LIMIT)
+end
+
+@testset "totaltime" begin
+    _test_limit("totaltime", SDPLR.Parameters().timelim, MOI.TIME_LIMIT)
+    _test_limit("totaltime", SDPLR.Parameters().timelim - eps(), MOI.TIME_LIMIT)
+end
+
+@testset "continuity between solve" begin
+    model, X, c = simple_model()
+    MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
+    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
+          SDPLR.MAX_MAJITER - 2
+    MOI.optimize!(model)
+    @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >=
+          SDPLR.MAX_MAJITER
+    @test MOI.get(model, MOI.TerminationStatus()) == MOI.ITERATION_LIMIT
+    for i in 1:5
+        MOI.set(
+            model,
+            MOI.RawOptimizerAttribute("majiter"),
+            SDPLR.MAX_MAJITER - 2,
+        )
+        @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
+              SDPLR.MAX_MAJITER - 2
+        MOI.optimize!(model)
+    end
+    simple_test(model, X, c)
 end

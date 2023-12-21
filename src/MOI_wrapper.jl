@@ -1,6 +1,18 @@
-# This file modifies code from SDPAFamily.jl (https://github.com/ericphanson/SDPAFamily.jl/), which is available under an MIT license (see LICENSE).
-
 import MathOptInterface as MOI
+
+const MAX_MAJITER = 100_000
+const MAX_ITER = 10_000_000
+
+const PIECES_MAP = Dict{String,Int}(
+    "majiter" => 1,
+    "iter" => 2,
+    "lambdaupdate" => 3,
+    "CG" => 4,
+    "curr_CG" => 5,
+    "totaltime" => 6,
+    "sigma" => 7,
+    "overallsc" => 8,
+)
 
 const SupportedSets =
     Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle}
@@ -24,11 +36,14 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     Ainfo_type::Vector{Vector{Cchar}}
     silent::Bool
     params::Parameters
+    # Solution
     Rmap::Vector{Int}
-    R::Union{Nothing,Vector{Cdouble}}
-    lambda::Vector{Cdouble}
+    maxranks::Vector{Csize_t}
     ranks::Vector{Csize_t}
+    R::Vector{Cdouble}
+    lambda::Vector{Cdouble}
     pieces::Union{Nothing,Vector{Cdouble}}
+    set_pieces::Dict{Int,Cdouble}
     function Optimizer()
         return new(
             0.0,
@@ -50,31 +65,54 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             false,
             Parameters(),
             Int[],
-            nothing,
-            Cdouble[],
             Csize_t[],
+            Csize_t[],
+            Cdouble[],
+            Cdouble[],
             nothing,
+            Dict{Int,Cdouble}(),
         )
     end
 end
 
 function MOI.supports(::Optimizer, param::MOI.RawOptimizerAttribute)
-    return hasfield(Parameters, Symbol(param.name))
+    return haskey(PIECES_MAP, param.name) ||
+           hasfield(Parameters, Symbol(param.name))
 end
 function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
     if !MOI.supports(optimizer, param)
         throw(MOI.UnsupportedAttribute(param))
     end
-    s = Symbol(param.name)
-    setfield!(optimizer.params, s, convert(fieldtype(Parameters, s), value))
+    if haskey(PIECES_MAP, param.name)
+        idx = PIECES_MAP[param.name]
+        if isnothing(value)
+            delete!(optimizer.set_pieces, idx)
+        else
+            optimizer.set_pieces[idx] = value
+            if !isnothing(optimizer.pieces)
+                optimizer.pieces[idx] = value
+            end
+        end
+    else
+        s = Symbol(param.name)
+        setfield!(optimizer.params, s, convert(fieldtype(Parameters, s), value))
+    end
     return
 end
 function MOI.get(optimizer::Optimizer, param::MOI.RawOptimizerAttribute)
     if !MOI.supports(optimizer, param)
         throw(MOI.UnsupportedAttribute(param))
     end
-    getfield!(optimizer.params, Symbol(param.name))
-    return
+    if haskey(PIECES_MAP, param.name)
+        idx = PIECES_MAP[param.name]
+        if isnothing(optimizer.pieces)
+            return get(optimizer.set_pieces, idx, nothing)
+        else
+            return optimizer.pieces[idx]
+        end
+    else
+        return getfield(optimizer.params, Symbol(param.name))
+    end
 end
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true
@@ -121,6 +159,7 @@ function _new_block(model::Optimizer, set::MOI.PositiveSemidefiniteConeTriangle)
 end
 
 function MOI.add_constrained_variables(model::Optimizer, set::SupportedSets)
+    reset_solution!(model)
     offset = length(model.varmap)
     _new_block(model, set)
     ci = MOI.ConstraintIndex{MOI.VectorOfVariables,typeof(set)}(offset + 1)
@@ -220,6 +259,7 @@ function MOI.add_constraint(
     func::MOI.ScalarAffineFunction{Cdouble},
     set::MOI.EqualTo{Cdouble},
 )
+    reset_solution!(model)
     push!(model.Ainfo_entptr, Csize_t[])
     push!(model.Ainfo_type, Cchar[])
     _fill!(
@@ -262,31 +302,27 @@ function MOI.optimize!(model::Optimizer)
     push!(CAinfo_entptr, length(CAent))
     CAinfo_type =
         reduce(vcat, vcat([model.Cinfo_type], model.Ainfo_type), init = Cchar[])
-    maxranks = default_maxranks(
-        model.params.maxrank,
-        model.blktype,
-        model.blksz,
-        CAinfo_entptr,
-        length(model.b),
-    )
-    Rsizes = map(eachindex(model.blktype)) do k
-        if model.blktype[k] == Cchar('s')
-            return model.blksz[k] * maxranks[k]
-        else
-            @assert model.blktype[k] == Cchar('d')
-            return model.blksz[k]
-        end
-    end
-    model.Rmap = [0; cumsum(Rsizes)]
-    # In `main.c`, it does `(rand() / RAND_MAX) - (rand() - RAND_MAX)`` to take the difference between
-    # two numbers between 0 and 1. Here, Julia's `rand()`` is already between 0 and 1 so we don't have
-    # to divide by anything.
-    nr = last(model.Rmap)
     params = deepcopy(model.params)
     if model.silent
         params.printlevel = 0
     end
-    R = rand(nr) - rand(nr)
+    if isnothing(model.pieces)
+        model.maxranks = default_maxranks(
+            model.params.maxrank,
+            model.blktype,
+            model.blksz,
+            CAinfo_entptr,
+            length(model.b),
+        )
+        model.ranks = copy(model.maxranks)
+        model.Rmap, model.R =
+            default_R(model.blktype, model.blksz, model.maxranks)
+        model.lambda = zeros(Cdouble, length(model.b))
+        model.pieces = default_pieces(model.blksz)
+        for (idx, val) in model.set_pieces
+            model.pieces[idx] = val
+        end
+    end
     _, model.R, model.lambda, model.ranks, model.pieces = solve(
         model.blksz,
         model.blktype,
@@ -296,9 +332,12 @@ function MOI.optimize!(model::Optimizer)
         CAcol,
         CAinfo_entptr,
         CAinfo_type,
-        params = params,
-        maxranks = maxranks,
-        R = R,
+        params = model.params,
+        maxranks = model.maxranks,
+        ranks = model.ranks,
+        R = model.R,
+        lambda = model.lambda,
+        pieces = model.pieces,
     )
     return
 end
@@ -309,11 +348,21 @@ function MOI.get(optimizer::Optimizer, ::MOI.RawStatusString)
     return "majiter = $majiter, iter = $iter, λupdate = $λupdate, CG = $CG, curr_CG = $curr_CG, totaltime = $totaltime, σ = $σ, overallsc = $overallsc"
 end
 function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
-    return optimizer.pieces[6]
+    return MOI.get(optimizer, MOI.RawOptimizerAttribute("totaltime"))
 end
 
 function MOI.is_empty(optimizer::Optimizer)
     return isempty(optimizer.b) && isempty(optimizer.varmap)
+end
+
+function reset_solution!(optimizer::Optimizer)
+    empty!(optimizer.Rmap)
+    empty!(optimizer.maxranks)
+    empty!(optimizer.ranks)
+    empty!(optimizer.R)
+    empty!(optimizer.lambda)
+    optimizer.pieces = nothing
+    return
 end
 
 function MOI.empty!(optimizer::Optimizer)
@@ -333,11 +382,7 @@ function MOI.empty!(optimizer::Optimizer)
     empty!(optimizer.Acol)
     empty!(optimizer.Ainfo_entptr)
     empty!(optimizer.Ainfo_type)
-    empty!(optimizer.Rmap)
-    optimizer.R = nothing
-    empty!(optimizer.lambda)
-    empty!(optimizer.ranks)
-    optimizer.pieces = nothing
+    reset_solution!(optimizer)
     return
 end
 
@@ -356,6 +401,7 @@ function MOI.set(
     ::MOI.ObjectiveSense,
     sense::MOI.OptimizationSense,
 )
+    reset_solution!(model)
     sign = sense == MOI.MAX_SENSE ? -1 : 1
     if model.objective_sign != sign
         model.Cent .*= -1
@@ -369,6 +415,7 @@ function MOI.set(
     ::MOI.ObjectiveFunction,
     func::MOI.ScalarAffineFunction{Cdouble},
 )
+    reset_solution!(model)
     model.objective_constant = MOI.constant(func)
     empty!(model.Cent)
     empty!(model.Crow)
@@ -393,23 +440,25 @@ end
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
     if isnothing(model.pieces)
         return MOI.OPTIMIZE_NOT_CALLED
+    elseif MOI.get(model, MOI.SolveTimeSec()) >=
+           MOI.get(model, MOI.RawOptimizerAttribute("timelim"))
+        return MOI.TIME_LIMIT
+    elseif MOI.get(model, MOI.RawOptimizerAttribute("iter")) >= MAX_ITER ||
+           MOI.get(model, MOI.RawOptimizerAttribute("majiter")) >= MAX_MAJITER
+        return MOI.ITERATION_LIMIT
     else
         return MOI.LOCALLY_SOLVED
     end
 end
 
-function MOI.get(m::Optimizer, attr::MOI.PrimalStatus)
+function MOI.get(m::Optimizer, attr::Union{MOI.PrimalStatus,MOI.DualStatus})
     if attr.result_index > MOI.get(m, MOI.ResultCount())
         return MOI.NO_SOLUTION
+    elseif MOI.get(m, MOI.TerminationStatus()) != MOI.LOCALLY_SOLVED
+        return MOI.UNKNOWN_RESULT_STATUS
+    else
+        return MOI.FEASIBLE_POINT
     end
-    return MOI.FEASIBLE_POINT
-end
-
-function MOI.get(m::Optimizer, attr::MOI.DualStatus)
-    if attr.result_index > MOI.get(m, MOI.ResultCount())
-        return MOI.NO_SOLUTION
-    end
-    return MOI.FEASIBLE_POINT
 end
 
 function MOI.get(model::Optimizer, ::MOI.ResultCount)

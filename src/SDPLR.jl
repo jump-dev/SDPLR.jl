@@ -32,7 +32,7 @@ datablockind(data, block, numblock) = data * numblock + block
 
 function default_R(blktype::Vector{Cchar}, blksz, maxranks)
     # See `getstorage` in `main.c`
-    nr = sum(eachindex(blktype)) do k
+    Rsizes = map(eachindex(blktype)) do k
         if blktype[k] == Cchar('s')
             return blksz[k] * maxranks[k]
         else
@@ -40,10 +40,15 @@ function default_R(blktype::Vector{Cchar}, blksz, maxranks)
             return blksz[k]
         end
     end
+    Rmap = [0; cumsum(Rsizes)]
     # In `main.c`, it does `(rand() / RAND_MAX) - (rand() - RAND_MAX)`` to take the difference between
     # two numbers between 0 and 1. Here, Julia's `rand()`` is already between 0 and 1 so we don't have
     # to divide by anything.
-    return rand(nr) - rand(nr)
+    nr = last(Rmap)
+    # In `main.c`, it does `(rand() / RAND_MAX) - (rand() - RAND_MAX)`` to take the difference between
+    # two numbers between 0 and 1. Here, Julia's `rand()`` is already between 0 and 1 so we don't have
+    # to divide by anything.
+    return Rmap, rand(nr) - rand(nr)
 end
 
 function default_maxranks(maxrank, blktype, blksz, CAinfo_entptr, m)
@@ -64,6 +69,10 @@ function default_maxranks(maxrank, blktype, blksz, CAinfo_entptr, m)
             return Csize_t(1)
         end
     end
+end
+
+function default_pieces(blksz)
+    return Cdouble[0, 0, 0, 0, 0, 0, inv(sum(blksz)), 1]
 end
 
 """
@@ -98,9 +107,9 @@ function solve(
         length(b),
     ),
     ranks::Vector{Csize_t} = copy(maxranks),
-    R::Vector{Cdouble} = default_R(blktype, blksz, maxranks),
-    lambda::Vector{Cdouble} = zeros(length(b)),
-    pieces::Vector{Cdouble} = Cdouble[0, 0, 0, 0, 0, 0, inv(sum(blksz)), 1],
+    R::Vector{Cdouble} = default_R(blktype, blksz, maxranks)[2],
+    lambda::Vector{Cdouble} = zeros(Cdouble, length(b)),
+    pieces::Vector{Cdouble} = default_pieces(blksz),
 )
     numblk = length(blksz)
     @assert length(blktype) == numblk
