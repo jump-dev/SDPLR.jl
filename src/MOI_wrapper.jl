@@ -362,6 +362,7 @@ function reset_solution!(optimizer::Optimizer)
     empty!(optimizer.R)
     empty!(optimizer.lambda)
     optimizer.pieces = nothing
+    return
 end
 
 function MOI.empty!(optimizer::Optimizer)
