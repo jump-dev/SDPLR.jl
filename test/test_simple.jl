@@ -98,7 +98,11 @@ end
           SDPLR.MAX_MAJITER
     @test MOI.get(model, MOI.TerminationStatus()) == MOI.ITERATION_LIMIT
     for i in 1:5
-        MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
+        MOI.set(
+            model,
+            MOI.RawOptimizerAttribute("majiter"),
+            SDPLR.MAX_MAJITER - 2,
+        )
         @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
               SDPLR.MAX_MAJITER - 2
         MOI.optimize!(model)
