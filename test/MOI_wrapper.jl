@@ -23,7 +23,6 @@ function test_runtests()
             MOI.ConstraintName,
             MOI.VariableName,
             MOI.ObjectiveBound,
-            MOI.ConstraintDual, # TODO
             MOI.SolverVersion,
         ],
         optimal_status = MOI.LOCALLY_SOLVED,
@@ -45,7 +44,7 @@ function test_runtests()
             r"test_model_ScalarFunctionConstantNotZero$",
             r"test_model_delete$",
             # Detecting infeasibility or unboundedness not supported
-            "INFEASIBLE",
+            "INFEAS",
             "infeasible",
             # FIXME investigate
             r"test_conic_SecondOrderCone_nonnegative_post_bound$",
