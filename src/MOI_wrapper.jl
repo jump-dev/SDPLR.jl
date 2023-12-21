@@ -159,6 +159,7 @@ function _new_block(model::Optimizer, set::MOI.PositiveSemidefiniteConeTriangle)
 end
 
 function MOI.add_constrained_variables(model::Optimizer, set::SupportedSets)
+    reset_solution!(model)
     offset = length(model.varmap)
     _new_block(model, set)
     ci = MOI.ConstraintIndex{MOI.VectorOfVariables,typeof(set)}(offset + 1)
@@ -258,6 +259,7 @@ function MOI.add_constraint(
     func::MOI.ScalarAffineFunction{Cdouble},
     set::MOI.EqualTo{Cdouble},
 )
+    reset_solution!(model)
     push!(model.Ainfo_entptr, Csize_t[])
     push!(model.Ainfo_type, Cchar[])
     _fill!(
@@ -304,8 +306,7 @@ function MOI.optimize!(model::Optimizer)
     if model.silent
         params.printlevel = 0
     end
-    if length(model.lambda) < length(model.b) ||
-       length(model.ranks) < length(model.blksz)
+    if isnothing(model.pieces)
         model.maxranks = default_maxranks(
             model.params.maxrank,
             model.blktype,
@@ -354,6 +355,15 @@ function MOI.is_empty(optimizer::Optimizer)
     return isempty(optimizer.b) && isempty(optimizer.varmap)
 end
 
+function reset_solution!(optimizer::Optimizer)
+    empty!(optimizer.Rmap)
+    empty!(optimizer.maxranks)
+    empty!(optimizer.ranks)
+    empty!(optimizer.R)
+    empty!(optimizer.lambda)
+    optimizer.pieces = nothing
+end
+
 function MOI.empty!(optimizer::Optimizer)
     optimizer.objective_constant = 0.0
     optimizer.objective_sign = 1
@@ -371,12 +381,7 @@ function MOI.empty!(optimizer::Optimizer)
     empty!(optimizer.Acol)
     empty!(optimizer.Ainfo_entptr)
     empty!(optimizer.Ainfo_type)
-    empty!(optimizer.Rmap)
-    empty!(optimizer.maxranks)
-    empty!(optimizer.ranks)
-    empty!(optimizer.R)
-    empty!(optimizer.lambda)
-    optimizer.pieces = nothing
+    reset_solution!(optimizer)
     return
 end
 
@@ -395,6 +400,7 @@ function MOI.set(
     ::MOI.ObjectiveSense,
     sense::MOI.OptimizationSense,
 )
+    reset_solution!(model)
     sign = sense == MOI.MAX_SENSE ? -1 : 1
     if model.objective_sign != sign
         model.Cent .*= -1
@@ -408,6 +414,7 @@ function MOI.set(
     ::MOI.ObjectiveFunction,
     func::MOI.ScalarAffineFunction{Cdouble},
 )
+    reset_solution!(model)
     model.objective_constant = MOI.constant(func)
     empty!(model.Cent)
     empty!(model.Crow)
