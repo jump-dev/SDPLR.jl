@@ -2,6 +2,9 @@ module SDPLR
 
 using SDPLR_jll
 
+const lib = SDPLR.SDPLR_jll.libsdplr
+#const lib = "/home/blegat/git/sdplr/lib/libsdplr.so"
+
 include("bounds.jl")
 
 function solve_sdpa_file(file)
@@ -142,7 +145,7 @@ function solve(
         end
     end
     GC.@preserve blksz blktype b CAent CArow CAcol CAinfo_entptr CAinfo_type R lambda maxranks ranks pieces begin
-        ret = @ccall SDPLR.SDPLR_jll.libsdplr.sdplrlib(
+        ret = @ccall lib.sdplrlib(
             m::Csize_t,
             numblk::Csize_t,
             blksz::Ptr{Cptrdiff_t},
