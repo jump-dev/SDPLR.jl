@@ -3,7 +3,6 @@ module SDPLR
 import SDPLR_jll
 
 const lib = SDPLR.SDPLR_jll.libsdplr
-#const lib = "/home/blegat/git/sdplr/lib/libsdplr.so"
 
 include("bounds.jl")
 
