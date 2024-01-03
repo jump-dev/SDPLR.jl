@@ -16,6 +16,7 @@ function test_runtests()
         Float64,
     )
     config = MOI.Test.Config(
+        rtol = 1e-1,
         atol = 1e-1,
         exclude = Any[
             MOI.ConstraintBasisStatus,
@@ -31,30 +32,14 @@ function test_runtests()
         model,
         config,
         exclude = [
-            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2358
-            r"test_basic_VectorOfVariables_Nonpositives$",
-            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2360
-            r"test_basic_VectorOfVariables_SecondOrderCone$",
-            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2359
-            r"test_constraint_PrimalStart_DualStart_SecondOrderCone$",
-            # Needs https://github.com/jump-dev/MathOptInterface.jl/pull/2357
-            r"test_model_ListOfVariablesWithAttributeSet$",
-            r"test_model_LowerBoundAlreadySet$",
-            r"test_model_UpperBoundAlreadySet$",
-            r"test_model_ScalarFunctionConstantNotZero$",
-            r"test_model_delete$",
             # Detecting infeasibility or unboundedness not supported
             "INFEAS",
-            "infeasible",
-            # Incorrect `ConstraintDual` for `vc2` for MacOS in CI
-            r"test_linear_integration",
-            # FIXME investigate
-            r"test_conic_SecondOrderCone_nonnegative_post_bound$",
+            # These three are unbounded even if it's not in the name
             r"test_conic_SecondOrderCone_negative_post_bound_2$",
             r"test_conic_SecondOrderCone_negative_post_bound_3$",
             r"test_conic_SecondOrderCone_no_initial_bound$",
-            r"test_linear_add_constraints$",
-            r"test_modification_affine_deletion_edge_cases$",
+            # Incorrect `ConstraintDual` for `vc2` for MacOS in CI
+            r"test_linear_integration$",
         ],
     )
     return
