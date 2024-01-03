@@ -142,7 +142,7 @@ function solve(
         end
     end
     GC.@preserve blksz blktype b CAent CArow CAcol CAinfo_entptr CAinfo_type R lambda maxranks ranks pieces begin
-        ret = @ccall SDPLR_jll.libsdplr(
+        ret = @ccall SDPLR_jll.libsdplr.sdplrlib(
             m::Csize_t,
             numblk::Csize_t,
             blksz::Ptr{Cptrdiff_t},
