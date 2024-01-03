@@ -1,6 +1,6 @@
 module SDPLR
 
-using SDPLR_jll
+import SDPLR_jll
 
 const lib = SDPLR.SDPLR_jll.libsdplr
 #const lib = "/home/blegat/git/sdplr/lib/libsdplr.so"
