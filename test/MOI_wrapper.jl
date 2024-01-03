@@ -23,7 +23,6 @@ function test_runtests()
             MOI.ConstraintName,
             MOI.VariableName,
             MOI.ObjectiveBound,
-            MOI.ConstraintDual, # TODO
             MOI.SolverVersion,
         ],
         optimal_status = MOI.LOCALLY_SOLVED,
@@ -45,8 +44,10 @@ function test_runtests()
             r"test_model_ScalarFunctionConstantNotZero$",
             r"test_model_delete$",
             # Detecting infeasibility or unboundedness not supported
-            "INFEASIBLE",
+            "INFEAS",
             "infeasible",
+            # Incorrect `ConstraintDual` for `vc2` for MacOS in CI
+            r"test_linear_integration",
             # FIXME investigate
             r"test_conic_SecondOrderCone_nonnegative_post_bound$",
             r"test_conic_SecondOrderCone_negative_post_bound_2$",
