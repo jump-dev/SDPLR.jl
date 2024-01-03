@@ -169,7 +169,7 @@ function MOI.add_constrained_variables(model::Optimizer, set::SupportedSets)
             length(model.blksz),
             model.Ainfo_entptr[i],
             model.Ainfo_type[i],
-            _prev(model, i),
+            _next(model, i),
         )
     end
     _fill_until(
@@ -201,14 +201,13 @@ function _isless(t1::MOI.VectorAffineTerm, t2::MOI.VectorAffineTerm)
     end
 end
 
-function _prev(model::Optimizer, i)
-    prev = 0
-    for j in i:-1:1
+function _next(model::Optimizer, i)
+    for j in (i+1):length(model.Ainfo_entptr)
         if !isempty(model.Ainfo_entptr[j])
-            prev = last(model.Ainfo_entptr[j])
+            return first(model.Ainfo_entptr[j])
         end
     end
-    return prev
+    return length(model.Aent)
 end
 
 function _fill_until(
@@ -332,7 +331,7 @@ function MOI.optimize!(model::Optimizer)
         CAcol,
         CAinfo_entptr,
         CAinfo_type,
-        params = model.params,
+        params = params,
         maxranks = model.maxranks,
         ranks = model.ranks,
         R = model.R,
