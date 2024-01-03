@@ -2,8 +2,6 @@ module SDPLR
 
 import SDPLR_jll
 
-const lib = SDPLR.SDPLR_jll.libsdplr
-
 include("bounds.jl")
 
 function solve_sdpa_file(file)
@@ -144,7 +142,7 @@ function solve(
         end
     end
     GC.@preserve blksz blktype b CAent CArow CAcol CAinfo_entptr CAinfo_type R lambda maxranks ranks pieces begin
-        ret = @ccall lib.sdplrlib(
+        ret = @ccall SDPLR_jll.libsdplr(
             m::Csize_t,
             numblk::Csize_t,
             blksz::Ptr{Cptrdiff_t},
