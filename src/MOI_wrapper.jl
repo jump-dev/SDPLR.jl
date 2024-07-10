@@ -17,12 +17,21 @@ const PIECES_MAP = Dict{String,Int}(
     "overallsc" => 8,
 )
 
+const _LowRankMatrix{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} = LRO.Factorization{Cdouble,F,D}
+
+const _SetDotProd{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} = LRO.SetDotProducts{
+    MOI.PositiveSemidefiniteConeTriangle,
+    LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}},
+    <:AbstractVector{LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}}}
+}
+
 const SupportedSets =
-    Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle}
+    Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle,_SetDotProd}
 
 mutable struct Optimizer <: MOI.AbstractOptimizer
     objective_constant::Float64
     objective_sign::Int
+    dot_product::Vector{Union{Nothing,_LowRankMatrix}}
     blksz::Vector{Cptrdiff_t}
     blktype::Vector{Cchar}
     varmap::Vector{Tuple{Int,Int,Int}} # Variable Index vi -> blk, i, j
@@ -51,6 +60,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         return new(
             0.0,
             1,
+            Union{Nothing,_LowRankMatrix}[],
             Cptrdiff_t[],
             Cchar[],
             Tuple{Int,Int,Int}[],
@@ -151,6 +161,7 @@ function _new_block(model::Optimizer, set::MOI.Nonnegatives)
     blk = length(model.blksz)
     for i in 1:MOI.dimension(set)
         push!(model.varmap, (blk, i, i))
+        push!(model.dot_product, nothing)
     end
     return
 end
@@ -162,8 +173,19 @@ function _new_block(model::Optimizer, set::MOI.PositiveSemidefiniteConeTriangle)
     for j in 1:set.side_dimension
         for i in 1:j
             push!(model.varmap, (blk, i, j))
+            push!(model.dot_product, nothing)
         end
     end
+    return
+end
+
+function _new_block(model::Optimizer, set::_SetDotProd)
+    blk = length(model.blksz) + 1
+    for i in eachindex(set.vectors)
+        push!(model.varmap, (-blk, i, i))
+        push!(model.dot_product, set.vectors[i].matrix)
+    end
+    _new_block(model, set.set)
     return
 end
 
@@ -237,14 +259,36 @@ function _fill!(
 )
     for t in MOI.Utilities.canonical(func).terms
         blk, i, j = model.varmap[t.variable.value]
-        _fill_until(model, blk, entptr, type, length(ent))
-        coef = t.coefficient
-        if i != j
-            coef /= 2
+        _fill_until(model, abs(blk), entptr, type, length(ent))
+        if type[end] == Cchar('l')
+            error(
+                "Can either have one dot product variable or several normal variables in the same constraint",
+            )
         end
-        push!(ent, coef)
-        push!(row, i)
-        push!(col, j)
+        if blk < 0
+            type[end] = Cchar('l')
+            mat = model.dot_product[t.variable.value]
+            for i in eachindex(mat.scaling)
+                push!(ent, mat.scaling[i])
+                push!(row, i)
+                push!(col, i)
+            end
+            for j in axes(mat.factor, 2)
+                for i in axes(mat.factor, 1)
+                    push!(ent, mat.factor[i, j])
+                    push!(row, i)
+                    push!(col, j)
+                end
+            end
+        else
+            coef = t.coefficient
+            if i != j
+                coef /= 2
+            end
+            push!(ent, coef)
+            push!(row, i)
+            push!(col, j)
+        end
     end
     _fill_until(model, length(model.blksz), entptr, type, length(ent))
     @assert length(entptr) == length(model.blksz)
@@ -366,6 +410,7 @@ end
 function MOI.empty!(optimizer::Optimizer)
     optimizer.objective_constant = 0.0
     optimizer.objective_sign = 1
+    empty!(optimizer.dot_product)
     empty!(optimizer.blksz)
     empty!(optimizer.blktype)
     empty!(optimizer.varmap)
