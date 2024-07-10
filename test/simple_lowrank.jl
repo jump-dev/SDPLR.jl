@@ -1,0 +1,8 @@
+blksz = Cptrdiff_t[2]
+blktype = Cchar['s']
+b = Cdouble[1]
+CAinfo_entptr = Csize_t[0, 2, 8]
+CAent = Cdouble[1, 1, -0.25, 0.25, -1, 1, 1, 1]
+CArow = Csize_t[1, 2, 1, 2, 1, 2, 1, 2]
+CAcol = Csize_t[1, 2, 1, 2, 1, 1, 2, 2]
+CAinfo_type = Cchar['s', 'l']
