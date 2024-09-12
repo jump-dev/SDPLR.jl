@@ -130,7 +130,8 @@ while majiter++ < 100_000
     if norm(vio) / (norm(b) + 1) <= rho_f || totaltime >= timelim || iter >= 10_000_000
         return
     end
-    while norm(G) / (norm(C) + 1) > rho_c / sigma
+    sigma *= 2
+    while norm(G) / (norm(C) + 1) < rho_c / sigma
         sigma *= 2
     end
     lambdaupdate = 0
