@@ -44,6 +44,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     lambda::Vector{Cdouble}
     pieces::Union{Nothing,Vector{Cdouble}}
     set_pieces::Dict{Int,Cdouble}
+    solve_time::Float64
     function Optimizer()
         return new(
             0.0,
@@ -71,6 +72,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             Cdouble[],
             nothing,
             Dict{Int,Cdouble}(),
+            NaN,
         )
     end
 end
@@ -322,6 +324,7 @@ function MOI.optimize!(model::Optimizer)
             model.pieces[idx] = val
         end
     end
+    start_time = time()
     _, model.R, model.lambda, model.ranks, model.pieces = solve(
         model.blksz,
         model.blktype,
@@ -338,6 +341,7 @@ function MOI.optimize!(model::Optimizer)
         lambda = model.lambda,
         pieces = model.pieces,
     )
+    model.solve_time = time() - start_time
     return
 end
 
@@ -347,7 +351,8 @@ function MOI.get(optimizer::Optimizer, ::MOI.RawStatusString)
     return "majiter = $majiter, iter = $iter, λupdate = $λupdate, CG = $CG, curr_CG = $curr_CG, totaltime = $totaltime, σ = $σ, overallsc = $overallsc"
 end
 function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
-    return MOI.get(optimizer, MOI.RawOptimizerAttribute("totaltime"))
+    return optimizer.solve_time
+    #return MOI.get(optimizer, MOI.RawOptimizerAttribute("totaltime"))
 end
 
 function MOI.is_empty(optimizer::Optimizer)
