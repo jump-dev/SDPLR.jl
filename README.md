@@ -62,7 +62,7 @@ julia> model = Model(SDPLR.Optimizer);
 
 julia> @variable(model, X[1:N, 1:N], PSD);
 
-julia> @objective(model, Max, LinearAlgebra.dot(L, X) / 4);
+julia> @objective(model, Max, dot(L, X) / 4);
 
 julia> @constraint(model, diag(X) .== 1);
 
