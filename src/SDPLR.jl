@@ -20,10 +20,13 @@ Base.@kwdef mutable struct Parameters
     dthresh_dim::Csize_t = 10
     dthresh_dens::Cdouble = 0.75
     numbfgsvecs::Csize_t = 4
-    rankredtol::Cdouble = 2.2204460492503131e-16
+    rankredtol::Cdouble = eps(Cdouble)
     gaptol::Cdouble = 1.0e-3
     checkbd::Cptrdiff_t = -1
     typebd::Cptrdiff_t = 1
+    # Given the number of constraints `m` involving the `n × n` matrix,
+    # `maxrank(m, n)` should return the rank to use for the
+    # factorization of the matrix.
     maxrank::Function = default_maxrank
 end
 

@@ -95,6 +95,9 @@ function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
         end
     else
         s = Symbol(param.name)
+        if s == :maxrank
+            reset_solution!(optimizer)
+        end
         setfield!(optimizer.params, s, convert(fieldtype(Parameters, s), value))
     end
     return
@@ -465,6 +468,29 @@ function MOI.get(model::Optimizer, ::MOI.ResultCount)
         return 0
     else
         return 1
+    end
+end
+
+struct Factor <: MOI.AbstractConstraintAttribute end
+MOI.is_set_by_optimize(::Factor) = true
+
+function MOI.get(
+    optimizer::Optimizer,
+    ::Factor,
+    ci::MOI.ConstraintIndex{MOI.VectorOfVariables,S},
+) where {S<:SupportedSets}
+    # The constraint index corresponds to the variable index of the `1, 1` entry
+    blk, i, j = optimizer.varmap[ci.value]
+    @assert i == j == 1
+    I = (optimizer.Rmap[blk]+1):optimizer.Rmap[blk+1]
+    r = optimizer.R[I]
+    if S === MOI.PositiveSemidefiniteConeTriangle
+        @assert optimizer.blktype[blk] == Cchar('s')
+        d = optimizer.blksz[blk]
+        return reshape(r, d, div(length(I), d))
+    else
+        @assert optimizer.blktype[blk] == Cchar('d')
+        return r
     end
 end
 

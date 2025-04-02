@@ -57,7 +57,8 @@ end
 """
     default_maxrank(m, n)
 
-Return the value of `min(pataki(m + 1) + 1, n)` following the results of [BM05]
+Given the number of constraints `m` involving the `n × n` matrix,
+return the value of `min(pataki(m + 1) + 1, n)` following the results of [BM05]
 suggesting to use a `r > r_{m + 1}` where `r_{m}` is `pataki(m)`. So it means
 `r > pataki(m + 1)` or equivalently `r ≥ pataki(m + 1) + 1`.
 
