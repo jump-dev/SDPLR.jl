@@ -20,9 +20,16 @@ end
 function test_maxcut(weights; tol = 1e-4)
     N = size(weights, 1)
     L = Diagonal(weights * ones(N)) - weights
-    model = MOI.instantiate(SDPLR.Optimizer, with_bridge_type = Float64, with_cache_type = Float64)
+    model = MOI.instantiate(
+        SDPLR.Optimizer,
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+    )
     MOI.set(model, MOI.Silent(), true)
-    x, cX = MOI.add_constrained_variables(model, MOI.PositiveSemidefiniteConeTriangle(N))
+    x, cX = MOI.add_constrained_variables(
+        model,
+        MOI.PositiveSemidefiniteConeTriangle(N),
+    )
     X = _reshape(x, N)
     obj = 0.25 * dot(L, X)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
