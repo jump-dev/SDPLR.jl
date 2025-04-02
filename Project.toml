@@ -1,7 +1,7 @@
 name = "SDPLR"
 uuid = "56161740-ea4e-4253-9d15-43c62ff94d95"
 authors = ["Benoît Legat <benoit.legat@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
