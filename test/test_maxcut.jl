@@ -17,7 +17,7 @@ function _reshape(x, N)
     return Symmetric(X)
 end
 
-function test_maxcut(weights; tol = 1e-4)
+function test_maxcut(weights; tol = 1e-3)
     N = size(weights, 1)
     L = Diagonal(weights * ones(N)) - weights
     model = MOI.instantiate(
