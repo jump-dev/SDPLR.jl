@@ -141,6 +141,28 @@ function test_maxcut()
     end
 end
 
+function test_factor()
+    model = MOI.instantiate(
+        SDPLR.Optimizer,
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+    )
+    MOI.set(model, MOI.Silent(), true)
+    set = MOI.PositiveSemidefiniteConeTriangle(2)
+    x, cX = MOI.add_constrained_variables(model, set)
+    MOI.add_constraint(model, 1.0 * x[1] + 1.0 * x[2], MOI.EqualTo(1.0))
+    y, cY = MOI.add_constrained_variables(model, MOI.Nonnegatives(1))
+    MOI.add_constraint(model, 1.0 * x[2] - 1.0 * y[1], MOI.EqualTo(0.0))
+    MOI.optimize!(model)
+    @test MOI.get(model, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
+    F_X = MOI.get(model, SDPLR.Factor(), cX)
+    F_y = MOI.get(model, SDPLR.Factor(), cY)
+    X = [x[1] x[2]; x[2] x[3]]
+    @test F_X * F_X' ≈ MOI.get.(model, MOI.VariablePrimal(), X)
+    @test F_y * F_y' ≈ MOI.get.(model, MOI.VariablePrimal(), y)
+    return
+end
+
 function _build_simple_model()
     model = SDPLR.Optimizer()
     X, _ = MOI.add_constrained_variables(
