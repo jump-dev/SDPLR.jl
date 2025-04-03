@@ -50,6 +50,45 @@ function test_runtests()
     return
 end
 
+function test_RawOptimizerAttribute_UnsupportedAttribute()
+    model = SDPLR.Optimizer()
+    attr = MOI.RawOptimizerAttribute("FooBarBaz")
+    @test !MOI.supports(model, attr)
+    @test_throws MOI.UnsupportedAttribute(attr) MOI.get(model, attr)
+    @test_throws MOI.UnsupportedAttribute(attr) MOI.set(model, attr, false)
+    return
+end
+
+function test_RawOptimizerAttribute_PIECES_MAP_nothing()
+    model = SDPLR.Optimizer()
+    attr = MOI.RawOptimizerAttribute("lambdaupdate")
+    @test MOI.supports(model, attr)
+    @test MOI.get(model, attr) === nothing
+    @test MOI.set(model, attr, 2.0) === nothing
+    @test MOI.get(model, attr) === 2.0
+    @test MOI.set(model, attr, nothing) === nothing
+    @test MOI.get(model, attr) === nothing
+    return
+end
+
+function test_Ainfo_entptr_in_mixed_order()
+    model = SDPLR.Optimizer()
+    set = MOI.PositiveSemidefiniteConeTriangle(2)
+    x, c = MOI.add_constrained_variables(model, set)
+    MOI.add_constraint.(model, 1.0 .* x, MOI.EqualTo.([1.0, -1.0, 2.0]))
+    y, _ = MOI.add_constrained_variables(model, set)
+    MOI.add_constraint.(model, 1.0 .* y, MOI.EqualTo.([1.0, 2.0, 6.0]))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    f = sum(1.0 * x) + sum(1.0 * y)
+    MOI.set(model, MOI.ObjectiveFunction{typeof(f)}(), f)
+    MOI.optimize!(model)
+    @test MOI.get(model, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
+    atol = 1e-4
+    @test ≈(MOI.get.(model, MOI.VariablePrimal(), x), [1.0, -1.0, 2.0]; atol)
+    @test ≈(MOI.get.(model, MOI.VariablePrimal(), y), [1.0, 2.0, 6.0]; atol)
+    return
+end
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$(name)", "test_")

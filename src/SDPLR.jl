@@ -5,6 +5,7 @@
 
 module SDPLR
 
+import MathOptInterface as MOI
 import SDPLR_jll
 
 include("bounds.jl")

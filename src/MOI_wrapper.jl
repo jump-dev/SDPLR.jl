@@ -3,8 +3,6 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-import MathOptInterface as MOI
-
 const MAX_MAJITER = 100_000
 const MAX_ITER = 10_000_000
 
@@ -84,6 +82,7 @@ function MOI.supports(::Optimizer, param::MOI.RawOptimizerAttribute)
     return haskey(PIECES_MAP, param.name) ||
            hasfield(Parameters, Symbol(param.name))
 end
+
 function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
     if !MOI.supports(optimizer, param)
         throw(MOI.UnsupportedAttribute(param))
@@ -107,6 +106,7 @@ function MOI.set(optimizer::Optimizer, param::MOI.RawOptimizerAttribute, value)
     end
     return
 end
+
 function MOI.get(optimizer::Optimizer, param::MOI.RawOptimizerAttribute)
     if !MOI.supports(optimizer, param)
         throw(MOI.UnsupportedAttribute(param))
@@ -124,6 +124,7 @@ function MOI.get(optimizer::Optimizer, param::MOI.RawOptimizerAttribute)
 end
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true
+
 function MOI.set(optimizer::Optimizer, ::MOI.Silent, value::Bool)
     optimizer.silent = value
     return
@@ -196,17 +197,6 @@ function MOI.supports_constraint(
     ::Type{MOI.EqualTo{Cdouble}},
 )
     return true
-end
-
-function _isless(t1::MOI.VectorAffineTerm, t2::MOI.VectorAffineTerm)
-    if t1.scalar_term.variable.value == t2.scalar_term.variable.value
-        return isless(t1.output_index, t2.output_index)
-    else
-        return isless(
-            t1.scalar_term.variable.value,
-            t2.scalar_term.variable.value,
-        )
-    end
 end
 
 function _next(model::Optimizer, i)
@@ -354,6 +344,7 @@ function MOI.get(optimizer::Optimizer, ::MOI.RawStatusString)
         optimizer.pieces
     return "majiter = $majiter, iter = $iter, λupdate = $λupdate, CG = $CG, curr_CG = $curr_CG, totaltime = $totaltime, σ = $σ, overallsc = $overallsc"
 end
+
 function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
     return MOI.get(optimizer, MOI.RawOptimizerAttribute("totaltime"))
 end
@@ -477,6 +468,7 @@ function MOI.get(model::Optimizer, ::MOI.ResultCount)
 end
 
 struct Factor <: MOI.AbstractConstraintAttribute end
+
 MOI.is_set_by_optimize(::Factor) = true
 
 function MOI.get(
