@@ -8,6 +8,7 @@ module TestSDPLR
 using Test
 import LinearAlgebra
 import MathOptInterface as MOI
+import Random
 import SDPLR
 
 function test_runtests()
