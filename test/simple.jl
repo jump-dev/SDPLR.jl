@@ -1,3 +1,8 @@
+# Copyright (c) 2017: Benoît Legat and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 blksz = Cptrdiff_t[2]
 blktype = Cchar['s']
 b = Cdouble[1]
