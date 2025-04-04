@@ -8,20 +8,18 @@ module TestSDPLR
 using Test
 import LinearAlgebra
 import MathOptInterface as MOI
+import LowRankOpt as LRO
 import Random
 import SDPLR
 
 function test_runtests()
-    optimizer = SDPLR.Optimizer()
-    MOI.set(optimizer, MOI.Silent(), true)
-    MOI.set(optimizer, MOI.RawOptimizerAttribute("timelim"), 10)
-    model = MOI.Bridges.full_bridge_optimizer(
-        MOI.Utilities.CachingOptimizer(
-            MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
-            optimizer,
-        ),
-        Float64,
+    model = MOI.instantiate(
+        SDPLR.Optimizer,
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
     )
+    MOI.set(model, MOI.Silent(), true)
+    MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
     config = MOI.Test.Config(
         rtol = 1e-1,
         atol = 1e-1,
@@ -49,6 +47,31 @@ function test_runtests()
             r"test_linear_integration$",
         ],
     )
+    return
+end
+
+function test_LRO_runtests()
+    model = MOI.instantiate(
+        SDPLR.Optimizer,
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+    )
+    MOI.set(model, MOI.Silent(), true)
+    MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
+    config = MOI.Test.Config(
+        rtol = 1e-1,
+        atol = 1e-1,
+        exclude = Any[
+            MOI.ConstraintBasisStatus,
+            MOI.VariableBasisStatus,
+            MOI.ConstraintName,
+            MOI.VariableName,
+            MOI.ObjectiveBound,
+            MOI.SolverVersion,
+        ],
+        optimal_status = MOI.LOCALLY_SOLVED,
+    )
+    LRO.Test.runtests(model, config)
     return
 end
 
@@ -163,7 +186,7 @@ function test_factor()
     return
 end
 
-function _build_simple_model()
+function _build_simple_sparse_model()
     model = SDPLR.Optimizer()
     X, _ = MOI.add_constrained_variables(
         model,
@@ -175,6 +198,31 @@ function _build_simple_model()
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
     @test MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
     return model, X, c
+end
+
+function _build_simple_lowrank_model()
+    model = SDPLR.Optimizer()
+    A = LRO.Factorization(
+        [
+            -1.0 1.0
+            1.0 1.0
+        ],
+        [-1 / 4, 1 / 4],
+    )
+    set = LRO.SetDotProducts{LRO.WITH_SET}(
+        MOI.PositiveSemidefiniteConeTriangle(2),
+        [LRO.TriangleVectorization(A)],
+    )
+    @test set isa SDPLR._SetDotProd
+    @test set isa SDPLR._SetDotProd{Matrix{Float64},Vector{Float64}}
+    @test MOI.supports_add_constrained_variables(model, typeof(set))
+    X, _ = MOI.add_constrained_variables(model, set)
+    c = MOI.add_constraint(model, 1.0 * X[1], MOI.EqualTo(1.0))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    obj = 1.0 * X[2] + 1.0 * X[4]
+    MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
+    @test MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
+    return model, X[2:4], c
 end
 
 function _test_simple_model(model, X, c)
@@ -192,15 +240,22 @@ function _test_simple_model(model, X, c)
     return
 end
 
-function test_simple_MOI_wrapper()
-    model, X, c = _build_simple_model()
+function test_simple_sparse_MOI_wrapper()
+    model, X, c = _build_simple_sparse_model()
+    MOI.optimize!(model)
+    _test_simple_model(model, X, c)
+    return
+end
+
+function test_simple_lowrank_MOI_wrapper()
+    model, X, c = _build_simple_lowrank_model()
     MOI.optimize!(model)
     _test_simple_model(model, X, c)
     return
 end
 
 function _test_limit(attr, val, term)
-    model, _, _ = _build_simple_model()
+    model, _, _ = _build_simple_sparse_model()
     MOI.set(model, MOI.RawOptimizerAttribute(attr), val)
     MOI.optimize!(model)
     @test MOI.get(model, MOI.TerminationStatus()) == term
@@ -232,7 +287,7 @@ function totaltime()
 end
 
 function test_continuity_between_solve()
-    model, X, c = _build_simple_model()
+    model, X, c = _build_simple_sparse_model()
     MOI.set(model, MOI.RawOptimizerAttribute("majiter"), SDPLR.MAX_MAJITER - 2)
     @test MOI.get(model, MOI.RawOptimizerAttribute("majiter")) ==
           SDPLR.MAX_MAJITER - 2
@@ -310,15 +365,16 @@ function test_bounds()
     return
 end
 
-function test_solve_simple_with_sdplrlib()
+function _test_solve_simple_with_sdplrlib(;
+    CAinfo_entptr,
+    CAent,
+    CArow,
+    CAcol,
+    CAinfo_type,
+)
     blksz = Cptrdiff_t[2]
     blktype = Cchar['s']
     b = Cdouble[1]
-    CAinfo_entptr = Csize_t[0, 2, 3]
-    CAent = Cdouble[1, 1, 0.5]
-    CArow = Csize_t[1, 2, 1]
-    CAcol = Csize_t[1, 2, 2]
-    CAinfo_type = Cchar['s', 's']
     # The `925` seed is taken from SDPLR's `main.c`
     Random.seed!(925)
     ret, R, lambda, ranks, pieces = SDPLR.solve(
@@ -337,6 +393,28 @@ function test_solve_simple_with_sdplrlib()
     @test U * U' ≈ ones(2, 2) rtol = 1e-2
     @test lambda ≈ [2.0] atol = 1e-2
     @test ranks == Csize_t[2]
+    return
+end
+
+function test_solve_simple_sparse_with_sdplrlib()
+    _test_solve_simple_with_sdplrlib(
+        CAinfo_entptr = Csize_t[0, 2, 3],
+        CAent = Cdouble[1, 1, 0.5],
+        CArow = Csize_t[1, 2, 1],
+        CAcol = Csize_t[1, 2, 2],
+        CAinfo_type = Cchar['s', 's'],
+    )
+    return
+end
+
+function test_solve_simple_lowrank_with_sdplrlib()
+    _test_solve_simple_with_sdplrlib(
+        CAinfo_entptr = Csize_t[0, 2, 8],
+        CAent = Cdouble[1, 1, -0.25, 0.25, -1, 1, 1, 1],
+        CArow = Csize_t[1, 2, 1, 2, 1, 2, 1, 2],
+        CAcol = Csize_t[1, 2, 1, 2, 1, 1, 2, 2],
+        CAinfo_type = Cchar['s', 'l'],
+    )
     return
 end
 

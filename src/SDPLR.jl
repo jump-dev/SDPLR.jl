@@ -6,6 +6,7 @@
 module SDPLR
 
 import MathOptInterface as MOI
+import LowRankOpt as LRO
 import SDPLR_jll
 
 include("bounds.jl")
@@ -138,14 +139,17 @@ function solve(
             k += 1
             @assert CAinfo_entptr[k] <= CAinfo_entptr[k+1]
             for j in ((CAinfo_entptr[k]+1):CAinfo_entptr[k+1])
-                @assert blktype[blk] == CAinfo_type[k]
                 @assert 1 <= CArow[j] <= blksz[blk]
                 @assert 1 <= CAcol[j] <= blksz[blk]
                 if CAinfo_type[k] == Cchar('s')
+                    @assert blktype[blk] == Cchar('s')
                     @assert CArow[j] <= CAcol[j]
-                else
-                    @assert CAinfo_type[k] == Cchar('d')
+                elseif CAinfo_type[k] == Cchar('d')
+                    @assert blktype[blk] == Cchar('d')
                     @assert CArow[j] == CAcol[j]
+                else
+                    @assert CAinfo_type[k] == Cchar('l')
+                    @assert blktype[blk] == Cchar('s')
                 end
             end
         end
