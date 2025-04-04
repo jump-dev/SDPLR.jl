@@ -17,13 +17,17 @@ const PIECES_MAP = Dict{String,Int}(
     "overallsc" => 8,
 )
 
-const _LowRankMatrix{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} = LRO.Factorization{Cdouble,F,D}
+const _LowRankMatrix{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
+    LRO.Factorization{Cdouble,F,D}
 
-const _SetDotProd{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} = LRO.SetDotProducts{
-    MOI.PositiveSemidefiniteConeTriangle,
-    LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}},
-    <:AbstractVector{LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}}}
-}
+const _SetDotProd{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
+    LRO.SetDotProducts{
+        MOI.PositiveSemidefiniteConeTriangle,
+        LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}},
+        <:AbstractVector{
+            LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}},
+        },
+    }
 
 const SupportedSets =
     Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle,_SetDotProd}
