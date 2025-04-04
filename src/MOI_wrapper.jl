@@ -22,6 +22,7 @@ const _LowRankMatrix{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
 
 const _SetDotProd{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
     LRO.SetDotProducts{
+        LRO.WITH_SET,
         MOI.PositiveSemidefiniteConeTriangle,
         LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}},
         <:AbstractVector{
