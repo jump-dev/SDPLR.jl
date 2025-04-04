@@ -13,7 +13,11 @@ import Random
 import SDPLR
 
 function test_runtests()
-    model = MOI.instantiate(SDPLR.Optimizer, with_bridge_type = Float64, with_cache_type = Float64)
+    model = MOI.instantiate(
+        SDPLR.Optimizer,
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+    )
     MOI.set(model, MOI.Silent(), true)
     MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
     config = MOI.Test.Config(
@@ -45,7 +49,11 @@ function test_runtests()
 end
 
 function test_LRO_runtests()
-    model = MOI.instantiate(SDPLR.Optimizer, with_bridge_type = Float64, with_cache_type = Float64)
+    model = MOI.instantiate(
+        SDPLR.Optimizer,
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+    )
     MOI.set(model, MOI.Silent(), true)
     MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
     config = MOI.Test.Config(
@@ -61,10 +69,7 @@ function test_LRO_runtests()
         ],
         optimal_status = MOI.LOCALLY_SOLVED,
     )
-    LRO.Test.runtests(
-        model,
-        config,
-    )
+    LRO.Test.runtests(model, config)
     return
 end
 
