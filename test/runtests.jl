@@ -184,7 +184,7 @@ function _build_simple_lowrank_model()
         ],
         [-1 / 4, 1 / 4],
     )
-    set = LRO.SetDotProducts(
+    set = LRO.SetDotProducts{LRO.WITH_SET}(
         MOI.PositiveSemidefiniteConeTriangle(2),
         [LRO.TriangleVectorization(A)],
     )
