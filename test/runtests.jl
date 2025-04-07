@@ -54,6 +54,7 @@ function test_LRO_runtests()
         with_bridge_type = Float64,
         with_cache_type = Float64,
     )
+    LRO.Bridges.add_all_bridges(model, Float64)
     MOI.set(model, MOI.Silent(), true)
     MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
     config = MOI.Test.Config(
