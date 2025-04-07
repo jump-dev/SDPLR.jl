@@ -9,7 +9,7 @@
 ## Affiliation
 
 This wrapper is maintained by the JuMP community and is not an official project
-of [sburer](https://github.com/sburer).
+of [`@sburer`](https://github.com/sburer).
 
 ## Getting help
 
@@ -55,7 +55,7 @@ searches for their rank-`r` factor `F` such that `X = F * F'`.
 
 The advantage is that, as `F` is a `n × r` matrix, this decreases the number of
 variables if `r < n`. The disadvantage is that the SDPLR is now solving a
-nonconvex probem so it may converge to a solution that is not optimal.
+nonconvex problem so it may converge to a solution that is not optimal.
 
 The rule of thumb is: the larger `r` is, the more likely the solution you will
 get is optimal but the smaller `r` is, the faster each iteration is
