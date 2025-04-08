@@ -49,25 +49,18 @@ function test_runtests()
 end
 
 function test_LRO_runtests()
+    T = Float64
     model = MOI.instantiate(
         SDPLR.Optimizer,
-        with_bridge_type = Float64,
-        with_cache_type = Float64,
+        with_bridge_type = T,
+        with_cache_type = T,
     )
-    LRO.Bridges.add_all_bridges(model, Float64)
+    LRO.Bridges.add_all_bridges(model, T)
     MOI.set(model, MOI.Silent(), true)
     MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
     config = MOI.Test.Config(
         rtol = 1e-1,
         atol = 1e-1,
-        exclude = Any[
-            MOI.ConstraintBasisStatus,
-            MOI.VariableBasisStatus,
-            MOI.ConstraintName,
-            MOI.VariableName,
-            MOI.ObjectiveBound,
-            MOI.SolverVersion,
-        ],
         optimal_status = MOI.LOCALLY_SOLVED,
     )
     LRO.Test.runtests(model, config)
