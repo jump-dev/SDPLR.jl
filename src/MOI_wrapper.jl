@@ -17,11 +17,13 @@ const PIECES_MAP = Dict{String,Int}(
     "overallsc" => 8,
 )
 
+const _LowRankMatrix = LRO.Factorization{Cdouble,F,D}
+
 const _SetDotProd{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
     LRO.SetDotProducts{
         LRO.WITH_SET,
         MOI.PositiveSemidefiniteConeTriangle,
-        LRO.TriangleVectorization{Cdouble,LRO.Factorization{Cdouble,F,D}},
+        LRO.TriangleVectorization{Cdouble,_LowRankMatrix},
     }
 
 const SupportedSets =
@@ -30,7 +32,7 @@ const SupportedSets =
 mutable struct Optimizer <: MOI.AbstractOptimizer
     objective_constant::Float64
     objective_sign::Int
-    dot_product::Vector{Union{Nothing,_SetDotProd}}
+    dot_product::Vector{Union{Nothing,_LowRankMatrix}}
     blksz::Vector{Cptrdiff_t}
     blktype::Vector{Cchar}
     varmap::Vector{Tuple{Int,Int,Int}} # Variable Index vi -> blk, i, j
@@ -59,7 +61,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         return new(
             0.0,
             1,
-            Union{Nothing,_SetDotProd}[],
+            Union{Nothing,_LowRankMatrix}[],
             Cptrdiff_t[],
             Cchar[],
             Tuple{Int,Int,Int}[],
