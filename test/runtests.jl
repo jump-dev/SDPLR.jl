@@ -435,6 +435,35 @@ function test_solve_vibra_with_sdplrlib()
     @test ranks == Csize_t[9, 9, 1]
 end
 
+# Test of LowRankOpt's test `test_conic_PositiveSemidefinite_RankOne_polynomial` in low-level SDPLR version
+function test_solve_conic_PositiveSemidefinite_RankOne_polynomial()
+    blksz = [2, 2]
+    blktype = Int8['d', 's']
+    b = [-3.0, 1.0]
+    CAent = [-1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0]
+    CArow = UInt64[0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000002]
+    CAcol = UInt64[0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000001, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000001]
+    CAinfo_entptr = UInt64[0x0000000000000000, 0x0000000000000002, 0x0000000000000002, 0x0000000000000004, 0x0000000000000007, 0x0000000000000009, 0x000000000000000c]
+    CAinfo_type = Int8[100, 115, 100, 108, 100, 108]
+    # The `925` seed is taken from SDPLR's `main.c`
+    Random.seed!(925)
+    ret, R, lambda, ranks, pieces = SDPLR.solve(
+        blksz,
+        blktype,
+        b,
+        CAent,
+        CArow,
+        CAcol,
+        CAinfo_entptr,
+        CAinfo_type,
+    )
+    @test iszero(ret)
+    @show R
+    @show lambda
+    @show pieces
+    @show ranks
+end
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$(name)", "test_")
