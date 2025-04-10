@@ -17,7 +17,8 @@ const PIECES_MAP = Dict{String,Int}(
     "overallsc" => 8,
 )
 
-const _LowRankMatrix{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} = LRO.Factorization{Cdouble,F,D}
+const _LowRankMatrix{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
+    LRO.Factorization{Cdouble,F,D}
 
 const _SetDotProd{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
     LRO.SetDotProducts{
