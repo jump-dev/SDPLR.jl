@@ -12,24 +12,21 @@ import Random
 import SDPLR
 
 function test_runtests()
-    optimizer = SDPLR.Optimizer()
-    MOI.set(optimizer, MOI.Silent(), true)
-    MOI.set(optimizer, MOI.RawOptimizerAttribute("timelim"), 10)
     model = MOI.Bridges.full_bridge_optimizer(
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
-            optimizer,
+            SDPLR.Optimizer(),
         ),
         Float64,
     )
+    MOI.set(model, MOI.Silent(), true)
+    MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
     config = MOI.Test.Config(
         rtol = 1e-1,
         atol = 1e-1,
         exclude = Any[
             MOI.ConstraintBasisStatus,
             MOI.VariableBasisStatus,
-            MOI.ConstraintName,
-            MOI.VariableName,
             MOI.ObjectiveBound,
             MOI.SolverVersion,
         ],
