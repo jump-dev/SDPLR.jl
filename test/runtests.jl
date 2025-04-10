@@ -362,6 +362,32 @@ function test_solve_vibra_with_sdplrlib()
     @test ranks == Csize_t[9, 9, 1]
 end
 
+# Test of LowRankOpt's test `test_conic_PositiveSemidefinite_RankOne_polynomial` in low-level SDPLR version
+function test_solve_conic_PositiveSemidefinite_RankOne_polynomial()
+    model = SDPLR.Model(
+        blksz = [2, 2],
+        blktype = Cchar['d', 's'],
+        b = Cdouble[-3, 1],
+        CAent = Cdouble[-1, 1, -1, 1, 1, 1, -1, -1, 1, 1, 1, 1],
+        CArow = UInt64[1, 2, 1, 2, 1, 1, 2, 1, 2, 1, 1, 2],
+        CAcol = UInt64[1, 2, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1],
+        CAinfo_entptr = UInt64[0, 2, 2, 4, 7, 9, 12],
+        CAinfo_type = Cchar['s', 's', 's', 'l', 's', 'l'],
+    )
+    # The `925` seed is taken from SDPLR's `main.c`
+    Random.seed!(925)
+    SDPLR.write_sdplr(model, "lowrank_RankOne_poly.sdplr")
+    ret, R, lambda, ranks, pieces = SDPLR.solve(
+        model,
+        params = SDPLR.Parameters(printlevel = 4),
+    )
+    @test iszero(ret)
+    @show R
+    @show lambda
+    @show pieces
+    @show ranks
+end
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$(name)", "test_")

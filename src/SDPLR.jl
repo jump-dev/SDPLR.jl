@@ -39,6 +39,91 @@ end
 # See `macros.h`
 datablockind(data, block, numblock) = data * numblock + block
 
+@kwdef struct Model
+    blksz::Vector{Cptrdiff_t}
+    blktype::Vector{Cchar}
+    b::Vector{Cdouble}
+    CAent::Vector{Cdouble}
+    CArow::Vector{Csize_t}
+    CAcol::Vector{Csize_t}
+    CAinfo_entptr::Vector{Csize_t}
+    CAinfo_type::Vector{Cchar}
+end
+
+function checkdims(model::Model)
+    numblk = length(model.blksz)
+    @assert length(model.blktype) == numblk
+    m = length(model.b)
+    @assert length(model.CAinfo_entptr) == (m + 1) * numblk + 1
+    @assert length(model.CAinfo_type) == (m + 1) * numblk
+    @assert length(model.CAent) == length(model.CArow) == length(model.CAcol)
+    @assert model.CAinfo_entptr[1] == 0
+    @assert model.CAinfo_entptr[end] == length(model.CArow)
+    k = 0
+    for _ in eachindex(model.b)
+        for blk in eachindex(model.blksz)
+            k += 1
+            @assert model.CAinfo_entptr[k] <= model.CAinfo_entptr[k+1]
+            for j in ((model.CAinfo_entptr[k]+1):model.CAinfo_entptr[k+1])
+                @assert 1 <= model.CArow[j] <= model.blksz[blk]
+                @assert 1 <= model.CAcol[j] <= model.blksz[blk]
+                if model.CAinfo_type[k] == Cchar('s')
+                    @assert model.blktype[blk] == Cchar('s') || model.blktype[blk] == Cchar('d')
+                    @assert model.CArow[j] <= model.CAcol[j]
+                elseif model.CAinfo_type[k] == Cchar('d')
+                    @assert model.blktype[blk] == Cchar('d')
+                    @assert model.CArow[j] == model.CAcol[j]
+                else
+                    @assert model.CAinfo_type[k] == Cchar('l')
+                    @assert model.blktype[blk] == Cchar('s')
+                end
+            end
+        end
+    end
+    return m, numblk
+end
+
+function write_sdplr(model::Model, filename::String)
+    m, numblk = checkdims(model)
+    open(filename, "w") do io
+        println(io, m)
+        println(io, numblk)
+        println(io, join(model.blksz .* map(t -> t == 'd' ? -1 : 1, model.blktype), ' '))
+        println(io, join(model.b, ' '))
+        println(io, -1) # Currently ignored
+        for constraint in 0:m
+            for blk in eachindex(model.blksz)
+                print(io, constraint)
+                print(io, ' ')
+                print(io, blk)
+                print(io, ' ')
+                cur = numblk * constraint + blk
+                t = model.CAinfo_type[cur]
+                range = 1 .+ (model.CAinfo_entptr[cur]:(model.CAinfo_entptr[cur + 1] - 1))
+                if t == 'l'
+                    print(io, 'l')
+                    print(io, ' ')
+                    print(io, div(length(range), model.blksz[blk] + 1))
+                    for i in range
+                        println(io, model.CAent[i])
+                    end
+                else
+                    print(io, 's')
+                    print(io, ' ')
+                    print(io, length(range))
+                    for i in range
+                        print(io, model.CArow[i])
+                        print(io, ' ')
+                        print(io, model.CAcol[i])
+                        print(io, ' ')
+                        println(io, model.CAent[i])
+                    end
+                end
+            end
+        end
+    end
+end
+
 function default_R(blktype::Vector{Cchar}, blksz, maxranks)
     # See `getstorage` in `main.c`
     Rsizes = map(eachindex(blktype)) do k
@@ -99,69 +184,37 @@ is `Cchar('d')`.
 The `CA...` arguments specify the `C` and `A_i` matrices.
 """
 function solve(
-    blksz::Vector{Cptrdiff_t},
-    blktype::Vector{Cchar},
-    b::Vector{Cdouble},
-    CAent::Vector{Cdouble},
-    CArow::Vector{Csize_t},
-    CAcol::Vector{Csize_t},
-    CAinfo_entptr::Vector{Csize_t},
-    CAinfo_type::Vector{Cchar};
+    model::Model;
     params::Parameters = Parameters(),
     maxranks::Vector{Csize_t} = default_maxranks(
         params.maxrank,
-        blktype,
-        blksz,
-        CAinfo_entptr,
-        length(b),
+        model.blktype,
+        model.blksz,
+        model.CAinfo_entptr,
+        length(model.b),
     ),
     ranks::Vector{Csize_t} = copy(maxranks),
-    R::Vector{Cdouble} = default_R(blktype, blksz, maxranks)[2],
-    lambda::Vector{Cdouble} = zeros(Cdouble, length(b)),
-    pieces::Vector{Cdouble} = default_pieces(blksz),
+    R::Vector{Cdouble} = default_R(model.blktype, model.blksz, maxranks)[2],
+    lambda::Vector{Cdouble} = zeros(Cdouble, length(model.b)),
+    pieces::Vector{Cdouble} = default_pieces(model.blksz),
 )
-    numblk = length(blksz)
-    @assert length(blktype) == numblk
-    m = length(b)
-    @assert length(CAinfo_entptr) == (m + 1) * numblk + 1
-    @assert length(CAinfo_type) == (m + 1) * numblk
-    @assert length(CAent) == length(CArow) == length(CAcol)
+    m, numblk = checkdims(model)
     @assert length(lambda) == m
     @assert length(maxranks) == numblk
     @assert length(ranks) == numblk
     @assert length(pieces) == 8
-    @assert CAinfo_entptr[1] == 0
-    @assert CAinfo_entptr[end] == length(CArow)
-    k = 0
-    for _ in eachindex(b)
-        for blk in eachindex(blksz)
-            k += 1
-            @assert CAinfo_entptr[k] <= CAinfo_entptr[k+1]
-            for j in ((CAinfo_entptr[k]+1):CAinfo_entptr[k+1])
-                @assert blktype[blk] == CAinfo_type[k]
-                @assert 1 <= CArow[j] <= blksz[blk]
-                @assert 1 <= CAcol[j] <= blksz[blk]
-                if CAinfo_type[k] == Cchar('s')
-                    @assert CArow[j] <= CAcol[j]
-                else
-                    @assert CAinfo_type[k] == Cchar('d')
-                    @assert CArow[j] == CAcol[j]
-                end
-            end
-        end
-    end
-    GC.@preserve blksz blktype b CAent CArow CAcol CAinfo_entptr CAinfo_type R lambda maxranks ranks pieces begin
+    GC.@preserve model R lambda maxranks ranks pieces begin
         ret = @ccall SDPLR_jll.libsdplr.sdplrlib(
             m::Csize_t,
             numblk::Csize_t,
-            blksz::Ptr{Cptrdiff_t},
-            blktype::Ptr{Cchar},
-            b::Ptr{Cdouble},
-            CAent::Ptr{Cdouble},
-            CArow::Ptr{Csize_t},
-            CAcol::Ptr{Csize_t},
-            CAinfo_entptr::Ptr{Csize_t},
-            CAinfo_type::Ptr{Cchar},
+            model.blksz::Ptr{Cptrdiff_t},
+            model.blktype::Ptr{Cchar},
+            model.b::Ptr{Cdouble},
+            model.CAent::Ptr{Cdouble},
+            model.CArow::Ptr{Csize_t},
+            model.CAcol::Ptr{Csize_t},
+            model.CAinfo_entptr::Ptr{Csize_t},
+            model.CAinfo_type::Ptr{Cchar},
             params.numbfgsvecs::Csize_t,
             params.rho_f::Cdouble,
             params.rho_c::Cdouble,

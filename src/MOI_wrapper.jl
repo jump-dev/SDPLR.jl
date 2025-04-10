@@ -278,7 +278,7 @@ function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
     return MOI.Utilities.default_copy_to(dest, src)
 end
 
-function MOI.optimize!(model::Optimizer)
+function Base.convert(::Type{Model}, model::Optimizer)
     CAent = vcat(model.Cent, model.Aent)
     CArow = vcat(model.Crow, model.Arow)
     CAcol = vcat(model.Ccol, model.Acol)
@@ -299,6 +299,25 @@ function MOI.optimize!(model::Optimizer)
     push!(CAinfo_entptr, length(CAent))
     CAinfo_type =
         reduce(vcat, vcat([model.Cinfo_type], model.Ainfo_type), init = Cchar[])
+    return Model(;
+        blksz = model.blksz,
+        blktype = model.blktype,
+        b = model.b,
+        CAent,
+        CArow,
+        CAcol,
+        CAinfo_entptr,
+        CAinfo_type,
+    )
+end
+
+function MOI.write_to_file(model::Optimizer, filename::String)
+    write_sdplr(convert(Model, model), filename)
+    return
+end
+
+function MOI.optimize!(model::Optimizer)
+    raw_model = convert(Model, model)
     params = deepcopy(model.params)
     if model.silent
         params.printlevel = 0
@@ -308,7 +327,7 @@ function MOI.optimize!(model::Optimizer)
             model.params.maxrank,
             model.blktype,
             model.blksz,
-            CAinfo_entptr,
+            raw_model.CAinfo_entptr,
             length(model.b),
         )
         model.ranks = copy(model.maxranks)
@@ -321,14 +340,7 @@ function MOI.optimize!(model::Optimizer)
         end
     end
     _, model.R, model.lambda, model.ranks, model.pieces = solve(
-        model.blksz,
-        model.blktype,
-        model.b,
-        CAent,
-        CArow,
-        CAcol,
-        CAinfo_entptr,
-        CAinfo_type,
+        raw_model,
         params = params,
         maxranks = model.maxranks,
         ranks = model.ranks,
