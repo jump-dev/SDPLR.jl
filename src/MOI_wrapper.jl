@@ -270,7 +270,7 @@ function _fill!(
             type[end] = Cchar('l')
             mat = model.dot_product[t.variable.value]
             for i in eachindex(mat.scaling)
-                push!(ent, mat.scaling[i])
+                push!(ent, t.coefficient * mat.scaling[i])
                 push!(row, i)
                 push!(col, i)
             end
@@ -543,12 +543,23 @@ function MOI.get(
     vi::MOI.VariableIndex,
 )
     MOI.check_result_index_bounds(optimizer, attr)
-    blk, i, j = optimizer.varmap[vi.value]
-    I = (optimizer.Rmap[blk]+1):optimizer.Rmap[blk+1]
+    _blk, i, j = optimizer.varmap[vi.value]
+    blk = abs(_blk)
+    I = (optimizer.Rmap[abs(blk)]+1):optimizer.Rmap[abs(blk)+1]
     if optimizer.blktype[blk] == Cchar('s')
         d = optimizer.blksz[blk]
         U = reshape(optimizer.R[I], d, div(length(I), d))
-        return U[i, :]' * U[j, :]
+        if _blk < 0
+            # result of dot product
+            mat = optimizer.dot_product[vi.value]
+            return sum(eachindex(mat.scaling); init = 0.0) do i
+                v = mat.factor[:, i]
+                vU = U' * v
+                return mat.scaling[i] * (vU' * vU)
+            end
+        else
+            return U[i, :]' * U[j, :]
+        end
     else
         @assert optimizer.blktype[blk] == Cchar('d')
         return optimizer.R[I[i]]^2

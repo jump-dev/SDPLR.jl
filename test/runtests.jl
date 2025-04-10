@@ -440,10 +440,10 @@ function test_solve_conic_PositiveSemidefinite_RankOne_polynomial()
     blksz = [2, 2]
     blktype = Cchar['d', 's']
     b = [-3.0, 1.0]
-    CAent = [-1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0]
-    CArow = UInt64[0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000002]
-    CAcol = UInt64[0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000001, 0x0000000000000001, 0x0000000000000002, 0x0000000000000001, 0x0000000000000001, 0x0000000000000001]
-    CAinfo_entptr = UInt64[0x0000000000000000, 0x0000000000000002, 0x0000000000000002, 0x0000000000000004, 0x0000000000000007, 0x0000000000000009, 0x000000000000000c]
+    CAent = [-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0]
+    CArow = UInt64[1, 2, 1, 2, 1, 1, 2, 1, 2, 1, 1, 2]
+    CAcol = UInt64[1, 2, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1]
+    CAinfo_entptr = UInt64[0, 2, 2, 4, 7, 9, 12]
     CAinfo_type = Cchar['d', 's', 'd', 'l', 'd', 'l']
     # The `925` seed is taken from SDPLR's `main.c`
     Random.seed!(925)
@@ -458,10 +458,11 @@ function test_solve_conic_PositiveSemidefinite_RankOne_polynomial()
         CAinfo_type,
     )
     @test iszero(ret)
-    @show R
-    @show lambda
-    @show pieces
-    @show ranks
+    U = reshape(R[3:end], 2, 2)
+    @test U * U' ≈ [1 -1; -1 1] rtol = 1e-3
+    @test lambda ≈ [0, 1] atol = 1e-3
+    @test pieces == [7, 20, 1, 0, 0, 0, 16, 1]
+    @test ranks == [1, 2]
 end
 
 function runtests()
