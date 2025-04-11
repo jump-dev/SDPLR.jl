@@ -63,7 +63,7 @@ function test_LRO_runtests()
         atol = 1e-1,
         optimal_status = MOI.LOCALLY_SOLVED,
     )
-    LRO.Test.runtests(model, config)
+    MOI.Test.runtests(model, config, test_module = LRO.Test)
     return
 end
 
