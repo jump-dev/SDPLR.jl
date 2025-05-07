@@ -194,8 +194,8 @@ end
 
 function _build_simple_rankone_model()
     model = SDPLR.Optimizer()
-    A1 = LRO.positive_semidefinite_factorization([-1.0, 1.0])
-    A2 = LRO.positive_semidefinite_factorization([1.0, 1.0])
+    A1 = LRO.positive_semidefinite_factorization([-1.0; 1.0;;])
+    A2 = LRO.positive_semidefinite_factorization([1.0; 1.0;;])
     set = LRO.SetDotProducts{LRO.WITH_SET}(
         MOI.PositiveSemidefiniteConeTriangle(2),
         LRO.TriangleVectorization.([A1, A2]),

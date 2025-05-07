@@ -232,6 +232,9 @@ function _next(model::Optimizer, i)
     return length(model.Aent)
 end
 
+# For the variables that are not in the dot product, we need to fill the
+# `entptr` and `type`. This is because the solver needs to have an entry
+# for each block.
 function _fill_until(
     model::Optimizer,
     numblk,
@@ -250,6 +253,41 @@ function _fill_until(
     return
 end
 
+# We have ∑ αᵢ' * Fᵢ' * Fᵢ' = [F₁ ... Fₖ] * Diag(α₁, .., αₖ) * [F₁' .. Fₖ']
+function merge_low_rank_terms(
+    ent,
+    row,
+    col,
+    type::Vector{Cchar},
+    mats::Vector{Tuple{Cdouble,_LowRankMatrix}},
+)
+    if isempty(mats)
+        return
+    end
+    type[end] = Cchar('l')
+    offset = 0
+    for (coef, mat) in mats
+        for i in eachindex(mat.scaling)
+            push!(ent, coef * mat.scaling[i])
+            push!(row, offset + i)
+            push!(col, offset + i)
+        end
+        offset += length(mat.scaling)
+    end
+    offset = 0
+    for (_, mat) in mats
+        for j in axes(mat.factor, 2)
+            for i in axes(mat.factor, 1)
+                push!(ent, mat.factor[i, j])
+                push!(row, offset + i)
+                push!(col, offset + j)
+            end
+            offset += length(mat.scaling)
+        end
+    end
+    empty!(mats)
+end
+
 function _fill!(
     model,
     ent,
@@ -259,29 +297,17 @@ function _fill!(
     type::Vector{Cchar},
     func,
 )
+    prev_blk = 0
+    mats = Tuple{Cdouble,_LowRankMatrix}[]
     for t in MOI.Utilities.canonical(func).terms
         blk, i, j = model.varmap[t.variable.value]
-        _fill_until(model, abs(blk), entptr, type, length(ent))
-        if type[end] == Cchar('l')
-            error(
-                "Can either have one dot product variable or several normal variables in the same constraint",
-            )
+        if blk != prev_blk
+            merge_low_rank_terms(ent, row, col, type, mats)
         end
+        _fill_until(model, abs(blk), entptr, type, length(ent))
         if blk < 0
-            type[end] = Cchar('l')
-            mat = model.dot_product[t.variable.value]
-            for i in eachindex(mat.scaling)
-                push!(ent, t.coefficient * mat.scaling[i])
-                push!(row, i)
-                push!(col, i)
-            end
-            for j in axes(mat.factor, 2)
-                for i in axes(mat.factor, 1)
-                    push!(ent, mat.factor[i, j])
-                    push!(row, i)
-                    push!(col, j)
-                end
-            end
+            prev_blk = blk
+            push!(mats, (t.coefficient, model.dot_product[t.variable.value]))
         else
             coef = t.coefficient
             if i != j
@@ -292,6 +318,7 @@ function _fill!(
             push!(col, j)
         end
     end
+    merge_low_rank_terms(ent, row, col, type, mats)
     _fill_until(model, length(model.blksz), entptr, type, length(ent))
     @assert length(entptr) == length(model.blksz)
     @assert length(type) == length(model.blksz)
