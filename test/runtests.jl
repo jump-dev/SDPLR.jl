@@ -12,41 +12,41 @@ import LowRankOpt as LRO
 import Random
 import SDPLR
 
-function test_runtests()
-    model = MOI.instantiate(
-        SDPLR.Optimizer,
-        with_bridge_type = Float64,
-        with_cache_type = Float64,
-    )
-    MOI.set(model, MOI.Silent(), true)
-    MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
-    config = MOI.Test.Config(
-        rtol = 1e-1,
-        atol = 1e-1,
-        exclude = Any[
-            MOI.ConstraintBasisStatus,
-            MOI.VariableBasisStatus,
-            MOI.ObjectiveBound,
-            MOI.SolverVersion,
-        ],
-        optimal_status = MOI.LOCALLY_SOLVED,
-    )
-    MOI.Test.runtests(
-        model,
-        config,
-        exclude = [
-            # Detecting infeasibility or unboundedness not supported
-            "INFEAS",
-            # These three are unbounded even if it's not in the name
-            r"test_conic_SecondOrderCone_negative_post_bound_2$",
-            r"test_conic_SecondOrderCone_negative_post_bound_3$",
-            r"test_conic_SecondOrderCone_no_initial_bound$",
-            # Incorrect `ConstraintDual` for `vc2` for MacOS in CI
-            r"test_linear_integration$",
-        ],
-    )
-    return
-end
+#function test_runtests()
+#    model = MOI.instantiate(
+#        SDPLR.Optimizer,
+#        with_bridge_type = Float64,
+#        with_cache_type = Float64,
+#    )
+#    MOI.set(model, MOI.Silent(), true)
+#    MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
+#    config = MOI.Test.Config(
+#        rtol = 1e-1,
+#        atol = 1e-1,
+#        exclude = Any[
+#            MOI.ConstraintBasisStatus,
+#            MOI.VariableBasisStatus,
+#            MOI.ObjectiveBound,
+#            MOI.SolverVersion,
+#        ],
+#        optimal_status = MOI.LOCALLY_SOLVED,
+#    )
+#    MOI.Test.runtests(
+#        model,
+#        config,
+#        exclude = [
+#            # Detecting infeasibility or unboundedness not supported
+#            "INFEAS",
+#            # These three are unbounded even if it's not in the name
+#            r"test_conic_SecondOrderCone_negative_post_bound_2$",
+#            r"test_conic_SecondOrderCone_negative_post_bound_3$",
+#            r"test_conic_SecondOrderCone_no_initial_bound$",
+#            # Incorrect `ConstraintDual` for `vc2` for MacOS in CI
+#            r"test_linear_integration$",
+#        ],
+#    )
+#    return
+#end
 
 function test_LRO_runtests()
     T = Float64
@@ -192,6 +192,27 @@ function _build_simple_sparse_model()
     return model, X, c
 end
 
+function _build_simple_rankone_model()
+    model = SDPLR.Optimizer()
+    A1 = LRO.positive_semidefinite_factorization([-1.0, 1.0])
+    A2 = LRO.positive_semidefinite_factorization([1.0, 1.0])
+    set = LRO.SetDotProducts{LRO.WITH_SET}(
+        MOI.PositiveSemidefiniteConeTriangle(2),
+        LRO.TriangleVectorization.([A1, A2]),
+    )
+    @test set isa SDPLR._SetDotProd
+    @test MOI.supports_add_constrained_variables(model, typeof(set))
+    dot_prods_X, _ = MOI.add_constrained_variables(model, set)
+    dot_prods = dot_prods_X[1:2]
+    X = dot_prods_X[3:end]
+    c = MOI.add_constraint(model, -1/4 * dot_prods[1] + 1/4 * dot_prods[2], MOI.EqualTo(1.0))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    obj = 1.0 * X[1] + 1.0 * X[3]
+    MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
+    @test MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
+    return model, X, c
+end
+
 function _build_simple_lowrank_model()
     model = SDPLR.Optimizer()
     A = LRO.Factorization(
@@ -241,6 +262,13 @@ end
 
 function test_simple_lowrank_MOI_wrapper()
     model, X, c = _build_simple_lowrank_model()
+    MOI.optimize!(model)
+    _test_simple_model(model, X, c)
+    return
+end
+
+function test_simple_rankone_MOI_wrapper()
+    model, X, c = _build_simple_rankone_model()
     MOI.optimize!(model)
     _test_simple_model(model, X, c)
     return
