@@ -526,9 +526,10 @@ function MOI.get(
     # The constraint index corresponds to the variable index of the `1, 1` entry
     blk, i, j = optimizer.varmap[ci.value]
     @assert i == j == 1
+    blk = abs(blk) # In the Low-Rank case, we just take the factor of the PSD matrix
     I = (optimizer.Rmap[blk]+1):optimizer.Rmap[blk+1]
     r = optimizer.R[I]
-    if S === MOI.PositiveSemidefiniteConeTriangle
+    if S === MOI.PositiveSemidefiniteConeTriangle || S <: _SetDotProd
         @assert optimizer.blktype[blk] == Cchar('s')
         d = optimizer.blksz[blk]
         return reshape(r, d, div(length(I), d))
