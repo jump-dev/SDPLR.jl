@@ -72,6 +72,8 @@ julia> using LinearAlgebra, JuMP, SDPLR
 
 julia> weights = [0 5 7 6; 5 0 0 1; 7 0 0 1; 6 1 1 0];
 
+julia> N = LinearAlgebra.checksquare(weights)
+
 julia> L = Diagonal(weights * ones(N)) - weights;
 
 julia> model = Model(SDPLR.Optimizer);
