@@ -122,10 +122,10 @@ julia> F = MOI.get(model, SDPLR.Factor(), VariableInSetRef(X))
  -0.750538  -0.558704   0.352905
 ```
 
-`JuMP.value(X)` is internally computed from the factor so this will always hold:
+`JuMP.value.(X)` is internally computed from the factor so this will always hold:
 
 ```julia-repl
-julia> F * F' ≈ value(X)
+julia> F * F' ≈ value.(X)
 true
 ```
 
