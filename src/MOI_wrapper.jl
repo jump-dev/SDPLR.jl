@@ -279,11 +279,11 @@ function merge_low_rank_terms(
         for j in axes(mat.factor, 2)
             for i in axes(mat.factor, 1)
                 push!(ent, mat.factor[i, j])
-                push!(row, offset + i)
+                push!(row, i)
                 push!(col, offset + j)
             end
-            offset += length(mat.scaling)
         end
+        offset += length(mat.scaling)
     end
     empty!(mats)
 end

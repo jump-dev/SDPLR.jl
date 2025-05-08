@@ -12,41 +12,41 @@ import LowRankOpt as LRO
 import Random
 import SDPLR
 
-#function test_runtests()
-#    model = MOI.instantiate(
-#        SDPLR.Optimizer,
-#        with_bridge_type = Float64,
-#        with_cache_type = Float64,
-#    )
-#    MOI.set(model, MOI.Silent(), true)
-#    MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
-#    config = MOI.Test.Config(
-#        rtol = 1e-1,
-#        atol = 1e-1,
-#        exclude = Any[
-#            MOI.ConstraintBasisStatus,
-#            MOI.VariableBasisStatus,
-#            MOI.ObjectiveBound,
-#            MOI.SolverVersion,
-#        ],
-#        optimal_status = MOI.LOCALLY_SOLVED,
-#    )
-#    MOI.Test.runtests(
-#        model,
-#        config,
-#        exclude = [
-#            # Detecting infeasibility or unboundedness not supported
-#            "INFEAS",
-#            # These three are unbounded even if it's not in the name
-#            r"test_conic_SecondOrderCone_negative_post_bound_2$",
-#            r"test_conic_SecondOrderCone_negative_post_bound_3$",
-#            r"test_conic_SecondOrderCone_no_initial_bound$",
-#            # Incorrect `ConstraintDual` for `vc2` for MacOS in CI
-#            r"test_linear_integration$",
-#        ],
-#    )
-#    return
-#end
+function test_runtests()
+    model = MOI.instantiate(
+        SDPLR.Optimizer,
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+    )
+    MOI.set(model, MOI.Silent(), true)
+    MOI.set(model, MOI.RawOptimizerAttribute("timelim"), 10)
+    config = MOI.Test.Config(
+        rtol = 1e-1,
+        atol = 1e-1,
+        exclude = Any[
+            MOI.ConstraintBasisStatus,
+            MOI.VariableBasisStatus,
+            MOI.ObjectiveBound,
+            MOI.SolverVersion,
+        ],
+        optimal_status = MOI.LOCALLY_SOLVED,
+    )
+    MOI.Test.runtests(
+        model,
+        config,
+        exclude = [
+            # Detecting infeasibility or unboundedness not supported
+            "INFEAS",
+            # These three are unbounded even if it's not in the name
+            r"test_conic_SecondOrderCone_negative_post_bound_2$",
+            r"test_conic_SecondOrderCone_negative_post_bound_3$",
+            r"test_conic_SecondOrderCone_no_initial_bound$",
+            # Incorrect `ConstraintDual` for `vc2` for MacOS in CI
+            r"test_linear_integration$",
+        ],
+    )
+    return
+end
 
 function test_LRO_runtests()
     T = Float64
