@@ -30,13 +30,6 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
-      - name: LRO
-        shell: julia --project=@. {0}
-        run: |
-          using Pkg
-          Pkg.add([
-              PackageSpec(url="https://github.com/blegat/LowRankOpt.jl/"),
-          ])
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1

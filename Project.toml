@@ -9,6 +9,7 @@ MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 SDPLR_jll = "3a057b76-36a0-51f0-a66f-6d580b8e8efd"
 
 [compat]
+LowRankOpt = "0.1"
 MathOptInterface = "1.24"
 SDPLR_jll = "=100.2.300"
 julia = "1.10"
