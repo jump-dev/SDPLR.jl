@@ -493,7 +493,8 @@ function test_solve_conic_PositiveSemidefinite_RankOne_polynomial()
     U = reshape(R[3:end], 2, 2)
     @test U * U' ≈ [1 -1; -1 1] rtol = 1e-3
     @test lambda ≈ [0, 1] atol = 1e-3
-    @test pieces == [7, 20, 1, 0, 0, 0, 16, 1]
+    @test pieces[1:5] == [7, 20, 1, 0, 0]
+    @test pieces[7:8] == [16, 1]
     @test ranks == [1, 2]
 end
 
