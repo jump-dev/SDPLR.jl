@@ -286,6 +286,7 @@ function merge_low_rank_terms(
         offset += length(mat.scaling)
     end
     empty!(mats)
+    return
 end
 
 function _fill!(

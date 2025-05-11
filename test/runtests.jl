@@ -205,7 +205,11 @@ function _build_simple_rankone_model()
     dot_prods_X, _ = MOI.add_constrained_variables(model, set)
     dot_prods = dot_prods_X[1:2]
     X = dot_prods_X[3:end]
-    c = MOI.add_constraint(model, -1/4 * dot_prods[1] + 1/4 * dot_prods[2], MOI.EqualTo(1.0))
+    c = MOI.add_constraint(
+        model,
+        -1/4 * dot_prods[1] + 1/4 * dot_prods[2],
+        MOI.EqualTo(1.0),
+    )
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     obj = 1.0 * X[1] + 1.0 * X[3]
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
