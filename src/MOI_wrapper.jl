@@ -17,12 +17,23 @@ const PIECES_MAP = Dict{String,Int}(
     "overallsc" => 8,
 )
 
+const _LowRankMatrix{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
+    LRO.Factorization{Cdouble,F,D}
+
+const _SetDotProd{F<:AbstractMatrix{Cdouble},D<:AbstractVector{Cdouble}} =
+    LRO.SetDotProducts{
+        LRO.WITH_SET,
+        MOI.PositiveSemidefiniteConeTriangle,
+        LRO.TriangleVectorization{Cdouble,_LowRankMatrix{F,D}},
+    }
+
 const SupportedSets =
-    Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle}
+    Union{MOI.Nonnegatives,MOI.PositiveSemidefiniteConeTriangle,_SetDotProd}
 
 mutable struct Optimizer <: MOI.AbstractOptimizer
     objective_constant::Float64
     objective_sign::Int
+    dot_product::Vector{Union{Nothing,_LowRankMatrix}}
     blksz::Vector{Cptrdiff_t}
     blktype::Vector{Cchar}
     varmap::Vector{Tuple{Int,Int,Int}} # Variable Index vi -> blk, i, j
@@ -51,6 +62,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         return new(
             0.0,
             1,
+            Union{Nothing,_LowRankMatrix}[],
             Cptrdiff_t[],
             Cchar[],
             Tuple{Int,Int,Int}[],
@@ -151,6 +163,7 @@ function _new_block(model::Optimizer, set::MOI.Nonnegatives)
     blk = length(model.blksz)
     for i in 1:MOI.dimension(set)
         push!(model.varmap, (blk, i, i))
+        push!(model.dot_product, nothing)
     end
     return
 end
@@ -162,8 +175,19 @@ function _new_block(model::Optimizer, set::MOI.PositiveSemidefiniteConeTriangle)
     for j in 1:set.side_dimension
         for i in 1:j
             push!(model.varmap, (blk, i, j))
+            push!(model.dot_product, nothing)
         end
     end
+    return
+end
+
+function _new_block(model::Optimizer, set::_SetDotProd)
+    blk = length(model.blksz) + 1
+    for i in eachindex(set.vectors)
+        push!(model.varmap, (-blk, i, i))
+        push!(model.dot_product, set.vectors[i].matrix)
+    end
+    _new_block(model, set.set)
     return
 end
 
@@ -208,6 +232,9 @@ function _next(model::Optimizer, i)
     return length(model.Aent)
 end
 
+# For the variables that are not in the dot product, we need to fill the
+# `entptr` and `type`. This is because the solver needs to have an entry
+# for each block.
 function _fill_until(
     model::Optimizer,
     numblk,
@@ -226,6 +253,42 @@ function _fill_until(
     return
 end
 
+# We have ∑ αᵢ' * Fᵢ' * Fᵢ' = [F₁ ... Fₖ] * Diag(α₁, .., αₖ) * [F₁' .. Fₖ']
+function merge_low_rank_terms(
+    ent,
+    row,
+    col,
+    type::Vector{Cchar},
+    mats::Vector{Tuple{Cdouble,_LowRankMatrix}},
+)
+    if isempty(mats)
+        return
+    end
+    type[end] = Cchar('l')
+    offset = 0
+    for (coef, mat) in mats
+        for i in eachindex(mat.scaling)
+            push!(ent, coef * mat.scaling[i])
+            push!(row, offset + i)
+            push!(col, offset + i)
+        end
+        offset += length(mat.scaling)
+    end
+    offset = 0
+    for (_, mat) in mats
+        for j in axes(mat.factor, 2)
+            for i in axes(mat.factor, 1)
+                push!(ent, mat.factor[i, j])
+                push!(row, i)
+                push!(col, offset + j)
+            end
+        end
+        offset += length(mat.scaling)
+    end
+    empty!(mats)
+    return
+end
+
 function _fill!(
     model,
     ent,
@@ -235,17 +298,28 @@ function _fill!(
     type::Vector{Cchar},
     func,
 )
+    prev_blk = 0
+    mats = Tuple{Cdouble,_LowRankMatrix}[]
     for t in MOI.Utilities.canonical(func).terms
         blk, i, j = model.varmap[t.variable.value]
-        _fill_until(model, blk, entptr, type, length(ent))
-        coef = t.coefficient
-        if i != j
-            coef /= 2
+        if blk != prev_blk
+            merge_low_rank_terms(ent, row, col, type, mats)
         end
-        push!(ent, coef)
-        push!(row, i)
-        push!(col, j)
+        _fill_until(model, abs(blk), entptr, type, length(ent))
+        if blk < 0
+            prev_blk = blk
+            push!(mats, (t.coefficient, model.dot_product[t.variable.value]))
+        else
+            coef = t.coefficient
+            if i != j
+                coef /= 2
+            end
+            push!(ent, coef)
+            push!(row, i)
+            push!(col, j)
+        end
     end
+    merge_low_rank_terms(ent, row, col, type, mats)
     _fill_until(model, length(model.blksz), entptr, type, length(ent))
     @assert length(entptr) == length(model.blksz)
     @assert length(type) == length(model.blksz)
@@ -366,6 +440,7 @@ end
 function MOI.empty!(optimizer::Optimizer)
     optimizer.objective_constant = 0.0
     optimizer.objective_sign = 1
+    empty!(optimizer.dot_product)
     empty!(optimizer.blksz)
     empty!(optimizer.blktype)
     empty!(optimizer.varmap)
@@ -479,9 +554,10 @@ function MOI.get(
     # The constraint index corresponds to the variable index of the `1, 1` entry
     blk, i, j = optimizer.varmap[ci.value]
     @assert i == j == 1
+    blk = abs(blk) # In the Low-Rank case, we just take the factor of the PSD matrix
     I = (optimizer.Rmap[blk]+1):optimizer.Rmap[blk+1]
     r = optimizer.R[I]
-    if S === MOI.PositiveSemidefiniteConeTriangle
+    if S === MOI.PositiveSemidefiniteConeTriangle || S <: _SetDotProd
         @assert optimizer.blktype[blk] == Cchar('s')
         d = optimizer.blksz[blk]
         return reshape(r, d, div(length(I), d))
@@ -497,12 +573,23 @@ function MOI.get(
     vi::MOI.VariableIndex,
 )
     MOI.check_result_index_bounds(optimizer, attr)
-    blk, i, j = optimizer.varmap[vi.value]
-    I = (optimizer.Rmap[blk]+1):optimizer.Rmap[blk+1]
+    _blk, i, j = optimizer.varmap[vi.value]
+    blk = abs(_blk)
+    I = (optimizer.Rmap[abs(blk)]+1):optimizer.Rmap[abs(blk)+1]
     if optimizer.blktype[blk] == Cchar('s')
         d = optimizer.blksz[blk]
         U = reshape(optimizer.R[I], d, div(length(I), d))
-        return U[i, :]' * U[j, :]
+        if _blk < 0
+            # result of dot product
+            mat = optimizer.dot_product[vi.value]
+            return sum(eachindex(mat.scaling); init = 0.0) do i
+                v = mat.factor[:, i]
+                vU = U' * v
+                return mat.scaling[i] * (vU' * vU)
+            end
+        else
+            return U[i, :]' * U[j, :]
+        end
     else
         @assert optimizer.blktype[blk] == Cchar('d')
         return optimizer.R[I[i]]^2

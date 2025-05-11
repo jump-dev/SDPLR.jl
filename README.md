@@ -46,6 +46,9 @@ To use SDPLR with [JuMP](https://github.com/jump-dev/JuMP.jl), use
 using JuMP, SDPLR
 model = Model(SDPLR.Optimizer)
 ```
+In order to use low-rank **constraints** (not to be confused with low-rank
+**solutions** detailed in the next section), use the
+[LowRankOpt](https://github.com/blegat/LowRankOpt.jl/) extension of JuMP.
 
 ## Example: modifying the rank and checking optimality
 
