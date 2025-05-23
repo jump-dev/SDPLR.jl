@@ -1,7 +1,7 @@
 name = "SDPLR"
 uuid = "56161740-ea4e-4253-9d15-43c62ff94d95"
 authors = ["Benoît Legat <benoit.legat@gmail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 LowRankOpt = "607ca3ad-272e-43c8-bcbe-fc71b56c935c"
@@ -9,7 +9,7 @@ MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 SDPLR_jll = "3a057b76-36a0-51f0-a66f-6d580b8e8efd"
 
 [compat]
-LowRankOpt = "0.1"
+LowRankOpt = "0.2"
 MathOptInterface = "1.24"
 SDPLR_jll = "=100.2.300"
 julia = "1.10"
