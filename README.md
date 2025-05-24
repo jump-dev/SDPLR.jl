@@ -115,7 +115,8 @@ julia> objective_value(model)
 ```
 
 > [!TIP]
-> Note that you can obtain the number of iterations as follows:
+> You can obtain the number of iterations that you see displayed in a
+> progammatic way as follows:
 > ```julia-repl
 > julia> get_attribute(model, "majiter")
 > 10.0
