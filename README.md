@@ -114,6 +114,18 @@ julia> objective_value(model)
 18.00000016028532
 ```
 
+> [!TIP]
+> You can obtain the number of iterations that you see displayed in a
+> programmatic way as follows:
+> ```julia-repl
+> julia> get_attribute(model, "majiter")
+> 10.0
+> 
+> julia> get_attribute(model, "iter")
+> 37.0
+> ```
+> The other attributes are `lambdaupdate`, `CG`, `curr_CG`, `totaltime` (same as `JuMP.solve_time`), `sigma` and `overallsc`.
+
 We can see below that the factorization `F` is of rank 3:
 
 ```julia-repl
