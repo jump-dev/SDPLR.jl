@@ -276,7 +276,7 @@ The algorithm is parametrized by the attributes that can be used both with
 `JuMP.set_attribute` and `JuMP.get_attribute` and have the following types and
 default values:
 ```julia
-rho_f::Cdouble = 1.0e-5
+rho_f::Cdouble = 1.0e-5 # The solver stops when the `infeas` column in the printing is below this value
 rho_c::Cdouble = 1.0e-1
 sigmafac::Cdouble = 2.0
 rankreduce::Csize_t = 0
@@ -286,9 +286,9 @@ dthresh_dim::Csize_t = 10
 dthresh_dens::Cdouble = 0.75
 numbfgsvecs::Csize_t = 4
 rankredtol::Cdouble = 2.2204460492503131e-16
-gaptol::Cdouble = 1.0e-3
-checkbd::Cptrdiff_t = -1
-typebd::Cptrdiff_t = 1
+gaptol::Cdouble = 1.0e-3 # Appears to be unused
+checkbd::Cptrdiff_t = -1 # Setting it to `1` will add 3 zeros to each line of printing so leave it to `-1`
+typebd::Cptrdiff_t = 1 # Appears to be unused
 maxrank::Function = default_maxrank
 ```
 
@@ -320,9 +320,10 @@ The SDPLR solvers implements the following algorithm.
 ```julia
 sigma = inv(sum(size(A[i], 1) for i in 1:m))
 origval = val
+majiter = iter = 0
 while majiter++ < 100_000
     lambdaupdate = 0
-    localiter = 100
+    localiter = 11 # to make sure we do at least one iteration of the following loop
     while localiter > 10
         lambdaupdate += 1
         localiter = 0
@@ -341,9 +342,14 @@ while majiter++ < 100_000
         lambda -= sigma * vio
     end
     if val - 1e10 * abs(origval) > eps()
-        return
+        return # found grossly unbound value (indicative of infeasibility)
     end
-    if norm(vio) / (norm(b) + 1) <= rho_f || totaltime >= timelim || iter >= 10_000_000
+    # `rho_f_val` is
+    rho_f_val = norm(vio) / (norm(b) + 1)
+    # Print `maxiter` `iter` `overallsc * val` `rho_f_val` `totaltime`
+    # `overallsc` is set to `1` at start and its value at the end can
+    # bet obtained with `get_attribute(model, "overallsc")`
+    if rho_f_val <= rho_f || totaltime >= timelim || iter >= 10_000_000
         return
     end
     sigma *= 2
